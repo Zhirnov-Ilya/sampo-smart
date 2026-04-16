@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum as SqlEnum, Float, ForeignKey, JSON, String, Text, func
+from sqlalchemy import DateTime, Enum as SqlEnum, Float, ForeignKey, JSON, String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,6 +24,32 @@ class HypothesisStatus(str, Enum):
     DONE = "done"
 
 
+class UserRole(str, Enum):
+    SUPER_ADMIN = "super_admin"
+    ENTERPRISE_ADMIN = "enterprise_admin"
+    MANAGER = "manager"
+    ANALYST = "analyst"
+
+
+class Enterprise(Base):
+    __tablename__ = "enterprises"
+
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    industry: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    contact_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+    users: Mapped[list["User"]] = relationship(
+        back_populates="enterprise",
+        cascade="all, delete-orphan",
+    )
+
+    equipments: Mapped[list["Equipment"]] = relationship(
+        back_populates="enterprise",
+        cascade="all, delete-orphan",
+    )
+
+
 class EquipmentType(Base):
     __tablename__ = "equipment_types"
 
@@ -35,6 +61,36 @@ class EquipmentType(Base):
     )
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    role: Mapped[UserRole] = mapped_column(
+        SqlEnum(
+            UserRole,
+            name="user_role",
+            values_callable=lambda enum_cls: [item.value for item in enum_cls],
+        ),
+        nullable=False,
+        default=UserRole.ANALYST,
+        server_default=UserRole.ANALYST.value,
+    )
+
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+    enterprise_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("enterprises.id"),
+        nullable=True,
+    )
+
+    enterprise: Mapped[Optional["Enterprise"]] = relationship(
+        back_populates="users",
+    )
+
+
 class Equipment(Base):
     __tablename__ = "equipment"
 
@@ -42,9 +98,18 @@ class Equipment(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     location: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
+    enterprise_id: Mapped[int] = mapped_column(
+        ForeignKey("enterprises.id"),
+        nullable=False,
+    )
+
     equipment_type_id: Mapped[int] = mapped_column(
         ForeignKey("equipment_types.id"),
         nullable=False,
+    )
+
+    enterprise: Mapped["Enterprise"] = relationship(
+        back_populates="equipments",
     )
 
     equipment_type: Mapped["EquipmentType"] = relationship(
@@ -103,7 +168,11 @@ class Inspection(Base):
     check_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     status: Mapped[InspectionStatus] = mapped_column(
-        SqlEnum(InspectionStatus, name="inspection_status", values_callable=lambda enum_cls: [item.value for item in enum_cls]),
+        SqlEnum(
+            InspectionStatus,
+            name="inspection_status",
+            values_callable=lambda enum_cls: [item.value for item in enum_cls],
+        ),
         nullable=False,
     )
 
@@ -136,7 +205,11 @@ class Hypothesis(Base):
     priority_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     status: Mapped[HypothesisStatus] = mapped_column(
-        SqlEnum(HypothesisStatus, name="hypothesis_status",  values_callable=lambda enum_cls: [item.value for item in enum_cls]),
+        SqlEnum(
+            HypothesisStatus,
+            name="hypothesis_status",
+            values_callable=lambda enum_cls: [item.value for item in enum_cls],
+        ),
         nullable=False,
         default=HypothesisStatus.NEW,
         server_default=HypothesisStatus.NEW.value,
@@ -149,5 +222,7 @@ class Hypothesis(Base):
     downtime: Mapped["Downtime"] = relationship(
         back_populates="hypotheses",
     )
+
+
 
     

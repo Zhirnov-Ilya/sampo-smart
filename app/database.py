@@ -1,3 +1,5 @@
+import logging
+
 from datetime import datetime
 
 from sqlalchemy import func, text
@@ -6,6 +8,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 
 DATABASE_URL = settings.get_db_url()
 
@@ -44,5 +47,5 @@ async def test_connection() -> bool:
             await conn.execute(text("SELECT 1"))
         return True
     except Exception as e:
-        print(f"Ошибка подключения: {e}")
+        logger.exception(f"Database connection error: {e}")
         return False
