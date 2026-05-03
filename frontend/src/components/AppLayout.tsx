@@ -22,6 +22,7 @@ import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import LightbulbOutlinedIcon from "@mui/icons-material/LightbulbOutlined";
 import HomeWorkIcon from "@mui/icons-material/HomeWork";
 import GroupIcon from "@mui/icons-material/Group";
+import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
 
 import { useMe } from "../features/auth/useMe";
 
@@ -64,7 +65,19 @@ const menuItems = [
     path: "/admin/users",
     text: "Пользователи",
     icon: GroupIcon,
-  }
+  },
+  {
+    label: "Admin Equipment Types",
+    path: "/admin/equipment-types",
+    text: "Типы оборудования",
+    icon: BuildOutlinedIcon,
+  },
+  {
+    label: "Admin Equipment",
+    path: "/admin/equipment",
+    text: "Оборудование (админ)",
+    icon: PrecisionManufacturingOutlinedIcon,
+  },
 ];
 
 export function AppLayout({ children }: PropsWithChildren) {

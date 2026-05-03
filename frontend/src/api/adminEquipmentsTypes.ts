@@ -1,46 +1,59 @@
 import { apiClient } from "./axios";
 
-export type EquipmentType = {
-    id: number;
-    type_name: string;
-    is_active: boolean;
+export type AdminEquipmentType = {
+  id: number;
+  type_name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
-export type EquipmentTypeCreate = {
-    type_name: string;
+export type CreateEquipmentTypeRequest = {
+  type_name: string;
 };
 
-export type EquipmentTypeUpdate = {
-    type_name: string;
-    is_active: boolean;
+export type UpdateEquipmentTypeRequest = {
+  type_name: string;
+  is_active: boolean;
 };
 
-export async function getEquipmentTypes(): Promise<EquipmentType[]> {
-    const response = await apiClient.get("/equipment-types");
-    return response.data;
+export async function getAdminEquipmentTypesRequest(): Promise<AdminEquipmentType[]> {
+  const response = await apiClient.get("/equipment-types");
+  return response.data;
 }
 
-export async function createEquipmentType(
-    data: EquipmentTypeCreate
-): Promise<EquipmentType>{
-    const response = await apiClient.post("/equipment-types", data);
-    return response.data; 
+export async function createEquipmentTypeRequest(
+  data: CreateEquipmentTypeRequest
+): Promise<AdminEquipmentType> {
+  const response = await apiClient.post("/equipment-types", data);
+  return response.data;
 }
 
-export async function updateEquipmentType(
-    id: number,
-    data: EquipmentTypeUpdate
-): Promise<EquipmentType>{
-    const response = await apiClient.put(`/equipment-types/${id}`, data);
-    return response.data;
+export async function updateEquipmentTypeRequest(
+  equipmentTypeId: number,
+  data: UpdateEquipmentTypeRequest
+): Promise<AdminEquipmentType> {
+  const response = await apiClient.put(
+    `/equipment-types/${equipmentTypeId}`,
+    data
+  );
+  return response.data;
 }
 
-export async function deactivateEquipmentType(id: number): Promise<EquipmentType>{
-    const response = await apiClient.patch(`/equipment-types/${id}/deactivate`);
-    return response.data;
+export async function activateEquipmentTypeRequest(
+  equipmentTypeId: number
+): Promise<AdminEquipmentType> {
+  const response = await apiClient.patch(
+    `/equipment-types/${equipmentTypeId}/activate`
+  );
+  return response.data;
 }
 
-export async function activateEquipmentType(id: number): Promise<EquipmentType>{
-    const response = await apiClient.patch(`/equipment-types/${id}/activate`);
-    return response.data;
+export async function deactivateEquipmentTypeRequest(
+  equipmentTypeId: number
+): Promise<AdminEquipmentType> {
+  const response = await apiClient.patch(
+    `/equipment-types/${equipmentTypeId}/deactivate`
+  );
+  return response.data;
 }

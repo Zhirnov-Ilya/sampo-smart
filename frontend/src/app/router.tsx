@@ -10,6 +10,8 @@ import { AppLayout } from "../components/AppLayout";
 import { HypothesisDetailsPage } from "../pages/HypothesisDetailsPage";
 import { AdminEnterprisesPage } from "../pages/AdminEnterprisesPage";
 import {AdminUsersPage} from "../pages/AdminUsersPage";
+import { AdminEquipmentTypesPage } from "../pages/AdminEquipmentTypesPage";
+import { AdminEquipmentPage } from "../pages/AdminEquipmentPage";
 
 
 export const router = createBrowserRouter([
@@ -90,5 +92,25 @@ export const router = createBrowserRouter([
         </AppLayout>
       </ProtectedRoute>
     )
-  }
+  },
+  {
+    path: "/admin/equipment-types",
+    element: (
+      <ProtectedRoute>
+        <AppLayout>
+          <AdminEquipmentTypesPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/equipment",
+    element: (
+      <ProtectedRoute>
+        <AppLayout>
+          <AdminEquipmentPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
 ]);

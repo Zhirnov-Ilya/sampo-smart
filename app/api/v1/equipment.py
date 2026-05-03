@@ -55,7 +55,13 @@ async def get_equipment_types(
     current_user: User = Depends(get_current_active_user),
     is_active: bool | None = None,
 ):
-    stmt = select(EquipmentType).where(EquipmentType.is_active == is_active).order_by(EquipmentType.id)
+    stmt = select(EquipmentType)
+
+    if is_active is not None:
+        stmt = stmt.where(EquipmentType.is_active == is_active)
+
+    stmt = stmt.order_by(EquipmentType.id)
+
     result = await db.execute(stmt)
     equipment_types = result.scalars().all()
 
@@ -320,7 +326,7 @@ async def update_equipment(
     stmt_type = select(EquipmentType).where(
         EquipmentType.id == data.equipment_type_id
     )
-    result_type = await db.exceute(stmt_type)
+    result_type = await db.execute(stmt_type)
     equipment_type = result_type.scalar_one_or_none()
 
     if (equipment_type is None):
@@ -375,16 +381,16 @@ async def deactivate_equipment(
 ):
     stmt = select(Equipment).where(Equipment.id == equipment_id)
     result = await db.execute(stmt)
-    equipmnet = result.scalar_one_or_none()
+    equipment = result.scalar_one_or_none()
 
     if (equipment is None):
         raise HTTPException(
-            status=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Equipment not found",
         )
     
     if (current_user.role != UserRole.SUPER_ADMIN):
-        if (current_user.enterprise_id != equipmnet.enterprise_id):
+        if (current_user.enterprise_id != equipment.enterprise_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied",
@@ -393,12 +399,12 @@ async def deactivate_equipment(
     equipment.is_active = False
 
     await db.commit()
-    await db.refresh(equipmnet)
+    await db.refresh(equipment)
 
-    return equipmnet
+    return equipment
     
 @router.patch(
-    "equipment/{equipment_id}/activate",
+    "/equipment/{equipment_id}/activate",
     response_model=EquipmentRead,
 )
 async def activate_equipment(
