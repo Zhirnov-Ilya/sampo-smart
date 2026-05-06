@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData, } from "@tanstack/react-query";
 
 import {
     getAdminUsersRequest,
@@ -7,12 +7,14 @@ import {
     activateUserRequest,
     deactivateUserRequest,
     resetPasswordRequest,
+    type AdminUserFilters,
 } from "../../api/adminUsers";
 
-export function useAdminUsers() {
+export function useAdminUsers(filters: AdminUserFilters = {}) {
     return useQuery({
-        queryKey: ["admin-users"],
-        queryFn: getAdminUsersRequest, 
+        queryKey: ["admin-users", filters],
+        queryFn: () => getAdminUsersRequest(filters), 
+        placeholderData: keepPreviousData, 
     });
 }
 

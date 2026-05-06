@@ -1,0 +1,202 @@
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import select, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.v1.auth import get_current_active_user, require_roles
+from app.database import get_db
+from app.models import Enterprise, Equipment, EquipmentType, User, UserRole
+from app.schemas import EnterpriseCreate, EnterpriseRead, EnterpriseUpdate
+
+
+router = APIRouter(prefix="/api/v1", tags=["Enterprises"])
+
+@router.post(
+    "/enterprises",
+    response_model=EnterpriseRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_enterprise(
+    data: EnterpriseCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    stmt = select(Enterprise).where(Enterprise.name == data.name)
+    result = await db.execute(stmt)
+    existing_enterprise = result.scalar_one_or_none()
+
+    if existing_enterprise:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Enterprise with this name already exists",
+        )
+
+    enterprise = Enterprise(
+        name=data.name,
+        industry=data.industry,
+        contact_email=data.contact_email,
+        is_active=data.is_active,
+    )
+
+    db.add(enterprise)
+    await db.commit()
+    await db.refresh(enterprise)
+
+    return enterprise
+
+
+@router.get(
+    "/enterprises",
+    response_model=list[EnterpriseRead],
+)
+async def get_enterprises(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
+    search: str | None = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    sort_order: Literal["newest", "oldest"] = Query(default="newest"),
+):
+    stmt = select(Enterprise)
+    
+    if is_active is not None:
+        stmt = stmt.where(Enterprise.is_active.is_(is_active))
+
+    if search:
+        normalized_search = search.strip()
+
+        if normalized_search:
+            stmt = stmt.where(
+                or_(
+                    Enterprise.name.ilike(f"%{normalized_search}%"),
+                    Enterprise.industry.ilike(f"%{normalized_search}%"),
+                    Enterprise.contact_email.ilike(f"%{normalized_search}%"),
+                )
+            )
+
+    if sort_order == "oldest":
+        stmt = stmt.order_by(Enterprise.created_at.asc(), Enterprise.id.asc())
+    else:
+        stmt = stmt.order_by(Enterprise.created_at.desc(), Enterprise.id.desc())
+
+    result = await db.execute(stmt)
+    enterprises = result.scalars().all()
+
+    return enterprises
+
+
+@router.get(
+    "/enterprises/{enterprise_id}",
+    response_model=EnterpriseRead,
+)
+async def get_enterprise_by_id(
+    enterprise_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    stmt = select(Enterprise).where(Enterprise.id == enterprise_id)
+    result = await db.execute(stmt)
+    enterprise = result.scalar_one_or_none()
+
+    if enterprise is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Enterprise not found",
+        )
+
+    return enterprise
+
+@router.put(
+    "/enterprises/{enterprise_id}",
+    response_model=EnterpriseRead,
+)
+async def update_enterprise(
+    enterprise_id: int,
+    data: EnterpriseUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    stmt = select(Enterprise).where(Enterprise.id == enterprise_id)
+    result = await db.execute(stmt)
+    enterprise = result.scalar_one_or_none()
+
+    if enterprise is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Enterprise not found",
+        )
+
+    duplicate_stmt = select(Enterprise).where(
+        Enterprise.name == data.name,
+        Enterprise.id != enterprise_id,
+    )
+    duplicate_result = await db.execute(duplicate_stmt)
+    duplicate_enterprise = duplicate_result.scalar_one_or_none()
+
+    if duplicate_enterprise:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Enterprise with this name already exists",
+        )
+
+    enterprise.name = data.name
+    enterprise.industry = data.industry
+    enterprise.contact_email = data.contact_email
+    enterprise.is_active = data.is_active
+
+    await db.commit()
+    await db.refresh(enterprise)
+
+    return enterprise
+
+@router.patch(
+    "/enterprises/{enterprise_id}/deactivate",
+    response_model=EnterpriseRead,
+)
+async def deactivate_enterprise(
+    enterprise_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    stmt = select(Enterprise).where(Enterprise.id == enterprise_id)
+    result = await db.execute(stmt)
+    enterprise = result.scalar_one_or_none()
+
+    if enterprise is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Enterprise not found",
+        )
+
+    enterprise.is_active = False
+
+    await db.commit()
+    await db.refresh(enterprise)
+
+    return enterprise
+
+@router.patch(
+    "/enterprises/{enterprise_id}/activate",
+    response_model=EnterpriseRead,
+)
+async def activate_enterprise(
+    enterprise_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
+):
+    stmt = select(Enterprise).where(Enterprise.id == enterprise_id)
+    result = await db.execute(stmt)
+    enterprise = result.scalar_one_or_none()
+
+    if enterprise is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Enterprise not found",
+        )
+
+    enterprise.is_active = True
+
+    await db.commit()
+    await db.refresh(enterprise)
+
+    return enterprise

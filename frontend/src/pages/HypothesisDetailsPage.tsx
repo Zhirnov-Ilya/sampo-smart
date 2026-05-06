@@ -1,13 +1,15 @@
+import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Button,
   Chip,
+  Divider,
+  Grid,
   MenuItem,
   Paper,
   TextField,
   Typography,
-  Divider,
 } from "@mui/material";
 
 import {
@@ -15,9 +17,16 @@ import {
   useUpdateHypothesisStatus,
 } from "../features/hypotheses/useHypotheses";
 import { PageLoader } from "../components/PageLoader";
+import {
+  formatDateTime,
+  formatMoney,
+  getPriorityLabel,
+  getStatusLabel,
+} from "../utils/format";
 
-
-function getStatusColor(status: string) {
+function getStatusColor(
+  status: string
+): "default" | "success" | "error" | "warning" | "info" {
   switch (status) {
     case "accepted":
       return "success";
@@ -32,16 +41,13 @@ function getStatusColor(status: string) {
   }
 }
 
-function getPriorityLabel(priorityScore: number | null) {
-  if (priorityScore == null) return "—";
-  if (priorityScore >= 8) return "Высокий";
-  if (priorityScore >= 5) return "Средний";
-  return "Низкий";
-}
-
-function formatMoney(value: number | null) {
-  if (value == null) return "—";
-  return value.toLocaleString("ru-RU");
+function getPriorityColor(
+  priorityScore: number | null | undefined
+): "default" | "success" | "warning" | "error" {
+  if (priorityScore == null) return "default";
+  if (priorityScore >= 8) return "error";
+  if (priorityScore >= 5) return "warning";
+  return "success";
 }
 
 function DetailRow({
@@ -49,14 +55,20 @@ function DetailRow({
   value,
 }: {
   label: string;
-  value: string | number;
+  value: string | number | null | undefined;
 }) {
   return (
-    <Box sx={{ mb: 2 }}>
-      <Typography variant="body2" sx={{ mb: 0.5 }}>
+    <Box>
+      <Typography
+        variant="body2"
+        sx={{ fontWeight: 600, mb: 0.5 }}
+      >
         {label}
       </Typography>
-      <Typography variant="body1">{value}</Typography>
+
+      <Typography variant="body2" color="text.secondary">
+        {value ?? "—"}
+      </Typography>
     </Box>
   );
 }
@@ -66,29 +78,33 @@ function DetailList({
   items,
 }: {
   label: string;
-  items: string[] | null;
+  items: string[] | null | undefined;
 }) {
   return (
-    <Box sx={{ mb: 2 }}>
-      <Typography variant="body2" sx={{ mb: 1 }}>
+    <Box>
+      <Typography
+        variant="body2"
+        sx={{ fontWeight: 600, mb: 0.5 }}
+      >
         {label}
       </Typography>
 
       {!items || items.length === 0 ? (
-        <Typography variant="body1">—</Typography>
+        <Typography variant="body2" color="text.secondary">
+          —
+        </Typography>
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+        <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
           {items.map((item, index) => (
-            <Paper
-              key={`${label}-${index}`}
-              sx={{
-                p: 1.5,
-                borderRadius: 2,
-                backgroundColor: "#FAFBFC",
-              }}
+            <Typography
+              key={`${item}-${index}`}
+              component="li"
+              variant="body2"
+              color="text.secondary"
+              sx={{ mb: 0.5 }}
             >
-              <Typography variant="body1">{item}</Typography>
-            </Paper>
+              {item}
+            </Typography>
           ))}
         </Box>
       )}
@@ -101,9 +117,18 @@ export function HypothesisDetailsPage() {
   const params = useParams();
 
   const hypothesisId = Number(params.id);
-  const { data: hypothesis, isLoading, isError } =
-    useHypothesisById(hypothesisId);
+
+  const {
+    data: hypothesis,
+    isLoading,
+    isError,
+  } = useHypothesisById(hypothesisId);
+
   const updateStatusMutation = useUpdateHypothesisStatus();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [hypothesisId]);
 
   const handleStatusChange = async (status: string) => {
     if (!hypothesis) return;
@@ -114,6 +139,15 @@ export function HypothesisDetailsPage() {
     });
   };
 
+  function splitActionSteps(value: string | null | undefined): string[] {
+    if (!value) return [];
+
+    return value
+      .split(/(?=\d+\.\s)/)
+      .map((step) => step.trim())
+      .filter(Boolean);
+    }
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -122,8 +156,9 @@ export function HypothesisDetailsPage() {
     return (
       <Paper sx={{ p: 3, borderRadius: 2 }}>
         <Typography variant="h2" component="h1" gutterBottom>
-          Hypothesis details
+          Детали гипотезы
         </Typography>
+
         <Typography variant="body1">
           Не удалось загрузить гипотезу.
         </Typography>
@@ -133,124 +168,270 @@ export function HypothesisDetailsPage() {
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 2,
-          mb: 3,
-        }}
+      <Button
+        variant="outlined"
+        color="primary"
+        onClick={() => navigate("/hypotheses")}
+        sx={{ mb: 3 }}
       >
-        <Box>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => navigate("/hypotheses")}
-            sx={{ mb: 2 }}
+        Назад к списку
+      </Button>
+
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, lg: 8 }}>
+          <Paper
+            sx={{
+              p: 3,
+              borderRadius: 2,
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+            }}
           >
-            Назад к списку
-          </Button>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 2,
+                mb: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h2" component="h1" gutterBottom>
+                  {hypothesis.title}
+                </Typography>
 
-          <Typography variant="h2" component="h1" gutterBottom>
-            {hypothesis.title}
-          </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Гипотеза №{hypothesis.id} — простой №{hypothesis.downtime_id}
+                </Typography>
+              </Box>
 
-          <Typography variant="body2">
-            Hypothesis ID: {hypothesis.id} • Downtime ID: {hypothesis.downtime_id}
-          </Typography>
-        </Box>
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                <Chip
+                  label={getStatusLabel(hypothesis.status)}
+                  color={getStatusColor(hypothesis.status)}
+                  size="small"
+                />
 
-        <Chip
-          label={hypothesis.status}
-          color={getStatusColor(hypothesis.status)}
-          size="small"
-        />
-      </Box>
+                <Chip
+                  label={getPriorityLabel(hypothesis.priority_score)}
+                  color={getPriorityColor(hypothesis.priority_score)}
+                  size="small"
+                  variant="outlined"
+                />
+              </Box>
+            </Box>
 
-      <Paper sx={{ p: 3, borderRadius: 2, mb: 3 }}>
-        <Typography variant="h3" gutterBottom>
-          Управление статусом
-        </Typography>
+            <Divider sx={{ my: 2 }} />
 
-        <TextField
-          label="Статус гипотезы"
-          select
-          size="small"
-          value={hypothesis.status}
-          onChange={(e) => handleStatusChange(e.target.value)}
-          sx={{ maxWidth: 260 }}
-          disabled={updateStatusMutation.isPending}
-        >
-          <MenuItem value="new">new</MenuItem>
-          <MenuItem value="accepted">accepted</MenuItem>
-          <MenuItem value="rejected">rejected</MenuItem>
-          <MenuItem value="in_progress">in_progress</MenuItem>
-          <MenuItem value="done">done</MenuItem>
-        </TextField>
-      </Paper>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <Box>
+                <Typography variant="h3" gutterBottom>
+                  Описание проблемы
+                </Typography>
 
-      <Paper sx={{ p: 3, borderRadius: 2 }}>
-        <Typography variant="h3" gutterBottom>
-          Детальная информация
-        </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {hypothesis.problem_description}
+                </Typography>
+              </Box>
 
-        <DetailRow
-          label="Приоритет"
-          value={getPriorityLabel(hypothesis.priority_score)}
-        />
+              <Box>
+                <Typography variant="h3" gutterBottom>
+                  Корневая причина
+                </Typography>
 
-        <DetailRow
-          label="Описание проблемы"
-          value={hypothesis.problem_description}
-        />
+                <Typography variant="body2" color="text.secondary">
+                  {hypothesis.root_cause || "—"}
+                </Typography>
+              </Box>
 
-        <DetailRow
-          label="Корневая причина"
-          value={hypothesis.root_cause || "—"}
-        />
+              <Box>
+                <Typography variant="h3" gutterBottom>
+                  Рекомендуемое действие
+                </Typography>
 
-        <DetailRow
-          label="Рекомендуемое действие"
-          value={hypothesis.suggested_action}
-        />
+                {splitActionSteps(hypothesis.suggested_action).length > 1 ? (
+                <Box component="ol" sx={{ m: 0, pl: 2.5 }}>
+                  {splitActionSteps(hypothesis.suggested_action).map((step, index) => (
+                    <Typography
+                      key={`${step}-${index}`}
+                      component="li"
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 0.75 }}
+                    >
+                      {step.replace(/^\d+\.\s*/, "")}
+                    </Typography>
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {hypothesis.suggested_action || "—"}
+                </Typography>
+              )}
+              </Box>
+            </Box>
+          </Paper>
 
-        <Divider sx={{ my: 3 }} />
+          <Paper
+            sx={{
+              p: 3,
+              mt: 3,
+              borderRadius: 2,
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+            }}
+          >
+            <Typography variant="h3" gutterBottom>
+              Ожидаемый эффект
+            </Typography>
 
-        <Typography variant="h3" gutterBottom>
-          Ожидаемый эффект
-        </Typography>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <DetailRow
+                  label="Снижение простоя"
+                  value={
+                    hypothesis.expected_downtime_reduction_hours != null
+                      ? `${hypothesis.expected_downtime_reduction_hours} ч.`
+                      : "—"
+                  }
+                />
+              </Grid>
 
-        <DetailRow
-          label="Снижение простоя, часы"
-          value={hypothesis.expected_downtime_reduction_hours ?? "—"}
-        />
+              <Grid size={{ xs: 12, md: 6 }}>
+                <DetailRow
+                  label="Ожидаемая экономия"
+                  value={formatMoney(hypothesis.expected_cost_savings_rub)}
+                />
+              </Grid>
 
-        <DetailRow
-          label="Ожидаемая экономия, ₽"
-          value={formatMoney(hypothesis.expected_cost_savings_rub)}
-        />
+              <Grid size={{ xs: 12, md: 6 }}>
+                <DetailRow
+                  label="Стоимость внедрения"
+                  value={formatMoney(hypothesis.implementation_cost_rub)}
+                />
+              </Grid>
 
-        <DetailRow
-          label="Стоимость внедрения, ₽"
-          value={formatMoney(hypothesis.implementation_cost_rub)}
-        />
+              <Grid size={{ xs: 12, md: 6 }}>
+                <DetailRow
+                  label="Срок внедрения"
+                  value={
+                    hypothesis.implementation_time_days != null
+                      ? `${hypothesis.implementation_time_days} дн.`
+                      : "—"
+                  }
+                />
+              </Grid>
+            </Grid>
+          </Paper>
 
-        <DetailRow
-          label="Срок внедрения, дни"
-          value={hypothesis.implementation_time_days ?? "—"}
-        />
+          <Paper
+            sx={{
+              p: 3,
+              mt: 3,
+              borderRadius: 2,
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+            }}
+          >
+            <Typography variant="h3" gutterBottom>
+              Дополнительные сведения
+            </Typography>
 
-        <Divider sx={{ my: 3 }} />
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <DetailList
+                  label="Риски"
+                  items={hypothesis.risks}
+                />
+              </Grid>
 
-        <Typography variant="h3" gutterBottom>
-          Дополнительные сведения
-        </Typography>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <DetailList
+                  label="Источники данных"
+                  items={hypothesis.data_sources}
+                />
+              </Grid>
 
-        <DetailList label="Риски" items={hypothesis.risks} />
-        <DetailList label="Источники данных" items={hypothesis.data_sources} />
-        <DetailList label="Похожие кейсы" items={hypothesis.similar_cases} />
-      </Paper>
+              <Grid size={{ xs: 12 }}>
+                <DetailList
+                  label="Похожие кейсы"
+                  items={hypothesis.similar_cases}
+                />
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <Paper
+            sx={{
+              p: 3,
+              borderRadius: 2,
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+              position: { lg: "sticky" },
+              top: 88,
+            }}
+          >
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="h3" gutterBottom>
+                Управление гипотезой
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                Измени статус гипотезы после принятия управленческого решения.
+              </Typography>
+            </Box>
+
+            <TextField
+              select
+              label="Статус"
+              value={hypothesis.status}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              disabled={updateStatusMutation.isPending}
+              fullWidth
+            >
+              <MenuItem value="new">Новая</MenuItem>
+              <MenuItem value="accepted">Принята</MenuItem>
+              <MenuItem value="rejected">Отклонена</MenuItem>
+              <MenuItem value="in_progress">В работе</MenuItem>
+              <MenuItem value="done">Завершена</MenuItem>
+            </TextField>
+
+            {updateStatusMutation.isPending && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mt: 1.5 }}
+              >
+                Обновление статуса...
+              </Typography>
+            )}
+
+            <Divider sx={{ my: 2.5 }} />
+
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+              <DetailRow
+                label="Связанный простой"
+                value={`Простой №${hypothesis.downtime_id}`}
+              />
+
+              <DetailRow
+                label="Приоритетный балл"
+                value={hypothesis.priority_score ?? "—"}
+              />
+
+              <DetailRow
+                label="Дата создания"
+                value={formatDateTime(hypothesis.created_at)}
+              />
+
+              <DetailRow
+                label="Дата обновления"
+                value={formatDateTime(hypothesis.updated_at)}
+              />
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
     </Box>
   );
 }

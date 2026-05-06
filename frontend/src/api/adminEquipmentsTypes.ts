@@ -1,5 +1,15 @@
 import { apiClient } from "./axios";
 
+export type AdminEquipmentTypeActiveFilters = "true" | "false" | ""
+
+export type AdminEquipmentTypeSortOrder = "newest" | "oldest"
+
+export type AdminEquipmentTypeFilters = {
+  search?: string;
+  is_active?: AdminEquipmentTypeActiveFilters;
+  sort_order?: AdminEquipmentTypeSortOrder;
+}
+
 export type AdminEquipmentType = {
   id: number;
   type_name: string;
@@ -17,8 +27,17 @@ export type UpdateEquipmentTypeRequest = {
   is_active: boolean;
 };
 
-export async function getAdminEquipmentTypesRequest(): Promise<AdminEquipmentType[]> {
-  const response = await apiClient.get("/equipment-types");
+export async function getAdminEquipmentTypesRequest(
+  filters: AdminEquipmentTypeFilters = {}
+): Promise<AdminEquipmentType[]> {
+  const response = await apiClient.get("/equipment-types", {
+    params: {
+      search: filters.search || undefined,
+      is_active: filters.is_active || undefined,
+      sort_order: filters.sort_order || "newest",
+    },
+  });
+
   return response.data;
 }
 

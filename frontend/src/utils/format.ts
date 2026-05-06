@@ -38,3 +38,26 @@ export function getStatusLabel(status: string): string {
       return status;
   }
 }
+
+export function getUserRoleLabel(role: string | null | undefined): string {
+  switch (role) {
+    case "SUPER_ADMIN":
+    case "super_admin":
+      return "Супер-администратор";
+
+    case "ENTERPRISE_ADMIN":
+    case "enterprise_admin":
+      return "Администратор предприятия";
+
+    case "MANAGER":
+    case "manager":
+      return "Менеджер";
+
+    case "ANALYST":
+    case "analyst":
+      return "Аналитик";
+
+    default:
+      return role ?? "—";
+  }
+}

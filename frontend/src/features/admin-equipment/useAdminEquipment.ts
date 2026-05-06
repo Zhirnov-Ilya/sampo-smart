@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData, } from "@tanstack/react-query";
 
 import {
   activateAdminEquipmentRequest,
@@ -6,12 +6,14 @@ import {
   deactivateAdminEquipmentRequest,
   getAdminEquipmentRequest,
   updateAdminEquipmentRequest,
+  type AdminEquipmentFilters,
 } from "../../api/adminEquipment";
 
-export function useAdminEquipment() {
+export function useAdminEquipment(filters: AdminEquipmentFilters = {}) {
   return useQuery({
-    queryKey: ["admin-equipment"],
-    queryFn: getAdminEquipmentRequest,
+    queryKey: ["admin-equipment", filters],
+    queryFn: () => getAdminEquipmentRequest(filters),
+    placeholderData: keepPreviousData,
   });
 }
 

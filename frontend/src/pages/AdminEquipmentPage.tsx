@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import {  useState, useEffect } from "react";
 import {
   Alert,
   Box,
@@ -34,11 +34,52 @@ import { EmptyState } from "../components/EmptyState";
 import { formatDateTime } from "../utils/format";
 
 type EditMode = "create" | "edit";
+type DateSortOrder = "newest" | "oldest";
+type ActiveFilter = "" | "true" | "false";
 
 export function AdminEquipmentPage() {
-  const { data: equipment, isLoading, isError } = useAdminEquipment();
   const { data: enterprises } = useAdminEnterprises();
   const { data: equipmentTypes } = useAdminEquipmentTypes();
+
+  const { data: activeEnterprises } = useAdminEnterprises({
+    is_active: "true",
+    sort_order: "newest",
+  });
+
+const { data: activeEquipmentTypes } = useAdminEquipmentTypes({
+    is_active: "true",
+    sort_order: "newest",
+  });
+
+  const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
+  const [selectedEnterpriseId, setSelectedEnterpriseId] = useState("");
+  const [selectedEquipmentTypeId, setSelectedEquipmentTypeId] = useState("");
+  const [dateSortOrder, setDateSortOrder] = useState<DateSortOrder>("newest");
+  const [selectedActiveStatus, setSelectedActiveStatus] = useState<ActiveFilter>("");
+  
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchValue(searchValue.trim());
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchValue]);
+
+  const {
+    data: equipment,
+    isLoading,
+    isError,
+    isFetching,
+  } = useAdminEquipment({
+    search: debouncedSearchValue,
+    enterprise_id: selectedEnterpriseId,
+    equipment_type_id: selectedEquipmentTypeId,
+    is_active: selectedActiveStatus,
+    sort_order: dateSortOrder,
+  });
 
   const createMutation = useCreateAdminEquipment();
   const updateMutation = useUpdateAdminEquipment();
@@ -48,8 +89,6 @@ export function AdminEquipmentPage() {
   const [serverError, setServerError] = useState("");
   const [mode, setMode] = useState<EditMode>("create");
   const [editingEquipmentId, setEditingEquipmentId] = useState<number | null>(null);
-
-  const formRef = useRef<HTMLDivElement | null>(null);
 
   const form = useForm<AdminEquipmentFormValues>({
     resolver: zodResolver(adminEquipmentCreateSchema),
@@ -146,13 +185,6 @@ export function AdminEquipmentPage() {
       equipment_type_id: String(item.equipment_type_id),
       is_active: item.is_active,
     });
-
-    setTimeout(() => {
-      formRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 0);
   };
 
   const handleCancelEdit = () => {
@@ -177,6 +209,22 @@ export function AdminEquipmentPage() {
     await activateMutation.mutateAsync(equipmentId);
   };
 
+const hasActiveFilters =
+    searchValue.trim() !== "" ||
+    selectedEnterpriseId !== "" ||
+    selectedEquipmentTypeId !== "" ||
+    selectedActiveStatus !== "" ||
+    dateSortOrder !== "newest";
+
+const handleResetFilters = () => {
+    setSearchValue("");
+    setDebouncedSearchValue("");
+    setSelectedEnterpriseId("");
+    setSelectedEquipmentTypeId("");
+    setSelectedActiveStatus("");
+    setDateSortOrder("newest");
+};
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -195,24 +243,175 @@ export function AdminEquipmentPage() {
   }
 
   return (
-    <Box  ref={formRef}>
+    <Box>
       <SectionHeader
-        title="Оборудование (админ)"
+        title="Оборудование"
         subtitle="Управление оборудованием предприятий"
       />
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 7 }}>
           <Paper sx={{ p: 3, borderRadius: 2 }}>
-            <Typography variant="h3" gutterBottom>
-              Список оборудования
-            </Typography>
+
+            <Paper
+                sx={{
+                    p: 2.5,
+                    mb: 3,
+                    borderRadius: 2,
+                    backgroundColor: "#F4F6F8",
+                    border: "1px solid",
+                    borderColor: "divider",
+                }}
+                >
+                <Box sx={{ mb: 2 }}>
+                    <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Фильтры и поиск
+                    </Typography>
+
+                    <Typography variant="body2" color="text.secondary">
+                    Используй параметры ниже, чтобы быстрее найти нужное оборудование.
+                    </Typography>
+                </Box>
+
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12 }}>
+                    <TextField
+                        label="Поиск по названию"
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        fullWidth
+                    />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <TextField
+                        label="Предприятие"
+                        select
+                        value={selectedEnterpriseId}
+                        onChange={(e) => setSelectedEnterpriseId(e.target.value)}
+                        fullWidth
+                      >
+                        <MenuItem value="">Все предприятия</MenuItem>
+                        {enterprises?.map((enterprise) => (
+                          <MenuItem key={enterprise.id} value={String(enterprise.id)}>
+                            {enterprise.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <TextField
+                        label="Тип оборудования"
+                        select
+                        value={selectedEquipmentTypeId}
+                        onChange={(e) => setSelectedEquipmentTypeId(e.target.value)}
+                        fullWidth
+                      >
+                        <MenuItem value="">Все типы</MenuItem>
+                        {equipmentTypes?.map((equipmentType) => (
+                          <MenuItem key={equipmentType.id} value={String(equipmentType.id)}>
+                            {equipmentType.type_name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <TextField
+                        label="Статус"
+                        select
+                        value={selectedActiveStatus}
+                        onChange={(e) =>
+                          setSelectedActiveStatus(e.target.value as ActiveFilter)
+                        }
+                        fullWidth
+                      >
+                        <MenuItem value="">Все оборудование</MenuItem>
+                        <MenuItem value="true">Только активное</MenuItem>
+                        <MenuItem value="false">Только неактивное</MenuItem>
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <TextField
+                        label="Сортировка по дате"
+                        select
+                        value={dateSortOrder}
+                        onChange={(e) => setDateSortOrder(e.target.value as DateSortOrder)}
+                        fullWidth
+                      >
+                        <MenuItem value="newest">Сначала новые</MenuItem>
+                        <MenuItem value="oldest">Сначала старые</MenuItem>
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12 }}>
+                    <Box
+                        sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 2,
+                        flexWrap: "wrap",
+                        }}
+                    >
+                        <Button
+                        variant="outlined"
+                        color="primary"
+                        onClick={handleResetFilters}
+                        disabled={!hasActiveFilters}
+                        >
+                        Сбросить фильтры
+                        </Button>
+
+                        {isFetching && (
+                        <Typography variant="caption" color="text.secondary">
+                            Обновление списка...
+                        </Typography>
+                        )}
+                    </Box>
+                    </Grid>
+                </Grid>
+            </Paper>
+
+            <Box
+                sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 2,
+                    mb: 2,
+                }}
+                >
+                <Typography variant="h3">
+                    Список оборудования
+                </Typography>
+
+                <Chip
+                    label={`Найдено: ${equipment.length}`}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                    backgroundColor: "background.paper",
+                    fontWeight: 500,
+                    }}
+                />
+            </Box>
 
             {equipment.length === 0 ? (
-              <EmptyState
-                title="Оборудование пока отсутствует"
-                description="Создай первую единицу оборудования через форму справа."
-              />
+            <EmptyState
+                title={
+                hasActiveFilters
+                    ? "Оборудование не найдено"
+                    : "Оборудование пока отсутствует"
+                }
+                description={
+                hasActiveFilters
+                    ? "Попробуй изменить параметры поиска или сбросить фильтры."
+                    : "Создай первую единицу оборудования через форму справа."
+                }
+            />
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {equipment.map((item) => {
@@ -231,6 +430,8 @@ export function AdminEquipmentPage() {
                         p: 2.5,
                         borderRadius: 2,
                         backgroundColor: "#FAFBFC",
+                        border: "1px solid",
+                        borderColor: "divider",
                       }}
                     >
                       <Box
@@ -250,7 +451,7 @@ export function AdminEquipmentPage() {
                             {item.name}
                           </Typography>
 
-                          <Typography variant="body2">
+                          <Typography variant="body2" color="text.secondary">
                             Код: {item.equipment_code}
                           </Typography>
                         </Box>
@@ -262,21 +463,32 @@ export function AdminEquipmentPage() {
                         />
                       </Box>
 
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        Предприятие: {enterpriseName}
-                      </Typography>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                            Предприятие:
+                            </Box>{" "}
+                            {enterpriseName}
+                        </Typography>
 
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        Тип: {equipmentTypeName}
-                      </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                            Тип:
+                            </Box>{" "}
+                            {equipmentTypeName}
+                        </Typography>
 
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        Локация: {item.location || "—"}
-                      </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                            Локация:
+                            </Box>{" "}
+                            {item.location || "—"}
+                        </Typography>
 
-                      <Typography variant="caption" sx={{ display: "block", mb: 2 }}>
-                        Создано: {formatDateTime(item.created_at)}
-                      </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            Создано: {formatDateTime(item.created_at)}
+                        </Typography>
+                    </Box>
 
                       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                         <Button
@@ -316,13 +528,25 @@ export function AdminEquipmentPage() {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 5 }}>
-          <Box>
+          <Box  sx={{
+            position: { lg: "sticky" },
+            top: 88,
+            }}>
             <Paper sx={{ p: 3, borderRadius: 2 }}>
-              <Typography variant="h3" gutterBottom>
-                {mode === "create"
-                  ? "Добавить оборудование"
-                  : "Редактировать оборудование"}
-              </Typography>
+              
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h3" gutterBottom>
+                  {mode === "create"
+                    ? "Добавить оборудование"
+                    : "Редактировать оборудование"}
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  {mode === "create"
+                    ? "Заполни данные новой единицы оборудования и выбери предприятие."
+                    : "Измени данные оборудования и сохрани изменения."}
+                </Typography>
+              </Box>
 
               {serverError && (
                 <Alert severity="error" sx={{ mb: 2 }}>
@@ -405,7 +629,7 @@ export function AdminEquipmentPage() {
                       helperText={form.formState.errors.enterprise_id?.message}
                     >
                       <MenuItem value="">Выберите предприятие</MenuItem>
-                      {enterprises?.map((enterprise) => (
+                      {activeEnterprises?.map((enterprise) => (
                         <MenuItem key={enterprise.id} value={String(enterprise.id)}>
                           {enterprise.name}
                         </MenuItem>
@@ -429,7 +653,7 @@ export function AdminEquipmentPage() {
                       helperText={form.formState.errors.equipment_type_id?.message}
                     >
                       <MenuItem value="">Выберите тип оборудования</MenuItem>
-                      {equipmentTypes?.map((equipmentType) => (
+                      {activeEquipmentTypes?.map((equipmentType) => (
                         <MenuItem key={equipmentType.id} value={String(equipmentType.id)}>
                           {equipmentType.type_name}
                         </MenuItem>
@@ -454,7 +678,7 @@ export function AdminEquipmentPage() {
                   )}
                 />
 
-                <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                <Box sx={{ display: "flex", gap: 1.5, flexDirection: { xs: "column", sm: "row" }, mt: 1, }}>
                   <Button
                     type="submit"
                     variant="contained"
@@ -464,6 +688,11 @@ export function AdminEquipmentPage() {
                       createMutation.isPending ||
                       updateMutation.isPending
                     }
+                    sx={{
+                        flex: 1,
+                        minWidth: 120,
+                        px: 3,
+                    }}
                   >
                     {mode === "create"
                       ? createMutation.isPending || form.formState.isSubmitting
@@ -480,6 +709,10 @@ export function AdminEquipmentPage() {
                       variant="outlined"
                       color="primary"
                       onClick={handleCancelEdit}
+                      sx={{
+                            minWidth: 100,
+                            flex: 1,
+                        }}
                     >
                       Отмена
                     </Button>

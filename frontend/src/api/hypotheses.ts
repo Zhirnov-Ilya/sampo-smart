@@ -1,5 +1,19 @@
 import { apiClient } from "./axios";
 
+export type HypothesisSortOrder = "newest" | "oldest";
+
+export type HypothesisPriorityFilter = "" | "high" | "medium" | "low";
+
+export type HypothesisFilters = {
+  
+  search?: string;
+  status?: string;
+  priority?: string;
+  downtime_id?: string;
+  sort_order?: HypothesisSortOrder;
+
+};
+
 export type Hypothesis = {
   id: number;
   downtime_id: number;
@@ -24,8 +38,19 @@ export type UpdateHypothesisStatusRequest = {
   status: string;
 };
 
-export async function getHypothesesRequest(): Promise<Hypothesis[]> {
-  const response = await apiClient.get("/hypotheses");
+export async function getHypothesesRequest(
+  filters: HypothesisFilters = {}
+): Promise<Hypothesis[]> {
+  const response = await apiClient.get("/hypotheses", {
+    params: {
+      search: filters.search || undefined,
+      status: filters.status || undefined,
+      priority: filters.priority || undefined,
+      downtime_id: filters.downtime_id || undefined,
+      sort_order: filters.sort_order || "newest",
+    },
+  });
+
   return response.data;
 }
 
@@ -52,4 +77,10 @@ export async function getHypothesisByIdRequest(
 ): Promise<Hypothesis> {
   const response = await apiClient.get(`/hypotheses/${hypothesisId}`);
   return response.data;
+}
+
+export async function deleteHypothesisRequest(
+  hypothesisId: number
+): Promise<void> {
+  await apiClient.delete(`/hypotheses/${hypothesisId}`);
 }

@@ -1,16 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 
 import {
+  deleteHypothesisRequest,
   generateHypothesisRequest,
-  getHypothesesRequest,
   getHypothesisByIdRequest,
+  getHypothesesRequest,
   updateHypothesisStatusRequest,
+  type HypothesisFilters,
 } from "../../api/hypotheses";
 
-export function useHypotheses() {
+export function useHypotheses(filters: HypothesisFilters = {}) {
   return useQuery({
-    queryKey: ["hypotheses"],
-    queryFn: getHypothesesRequest,
+    queryKey: ["hypotheses", filters],
+    queryFn: () => getHypothesesRequest(filters),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -51,6 +54,18 @@ export function useUpdateHypothesisStatus() {
       queryClient.invalidateQueries({
         queryKey: ["hypothesis", variables.hypothesisId],
       });
+    },
+  });
+}
+
+export function useDeleteHypothesis() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteHypothesisRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hypotheses"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-summary"] });
     },
   });
 }

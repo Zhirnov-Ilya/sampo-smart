@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef} from "react";
 import {
   Alert,
   Box,
@@ -39,20 +39,57 @@ import {
 import { PageLoader } from "../components/PageLoader";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/EmptyState";
-import { formatDateTime } from "../utils/format";
+import { formatDateTime, getUserRoleLabel } from "../utils/format";
 
 type EditMode = "create" | "edit";
+type DateSortOrder = "newest" | "oldest";
+type ActiveFilter = "" | "true" | "false"
 
 const roleOptions = [
-  { value: "super_admin", label: "SUPER_ADMIN" },
-  { value: "enterprise_admin", label: "ENTERPRISE_ADMIN" },
-  { value: "manager", label: "MANAGER" },
-  { value: "analyst", label: "ANALYST" },
+  { value: "super_admin", label: "Супер-администратор" },
+  { value: "enterprise_admin", label: "Администратор предприятия" },
+  { value: "manager", label: "Менеджер" },
+  { value: "analyst", label: "Аналитик" },
 ];
 
 export function AdminUsersPage() {
-  const { data: users, isLoading, isError } = useAdminUsers();
   const { data: enterprises } = useAdminEnterprises();
+  const { data: activeEnterprises } = useAdminEnterprises({
+    is_active: "true",
+  })
+
+  const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
+  const [selectedEnterpriseId, setSelectedEnterpriseId] = useState("");
+  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedActiveStatus, setSelectedActiveStatus] =
+    useState<ActiveFilter>("");
+  const [dateSortOrder, setDateSortOrder] =
+    useState<DateSortOrder>("newest");
+
+  
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchValue(searchValue.trim());
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchValue]);
+
+  const {
+    data: users,
+    isLoading,
+    isError,
+    isFetching,
+  } = useAdminUsers({
+    search: debouncedSearchValue,
+    enterprise_id: selectedEnterpriseId,
+    role: selectedRole,
+    is_active: selectedActiveStatus,
+    sort_order: dateSortOrder,
+  });
 
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
@@ -68,7 +105,6 @@ export function AdminUsersPage() {
   const [resetUserId, setResetUserId] = useState<number | null>(null);
   const [resetError, setResetError] = useState("");
   const [resetSuccess, setResetSuccess] = useState("");
-  const formRef = useRef<HTMLDivElement | null>(null);
   const createFormRef = useRef<HTMLFormElement | null>(null);
 
   const createForm = useForm<AdminUserCreateFormValues>({
@@ -207,13 +243,6 @@ export function AdminUsersPage() {
       is_active: user.is_active,
       enterprise_id: user.enterprise_id ? String(user.enterprise_id) : "",
     });
-
-    setTimeout(() => {
-        formRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-        });
-    }, 0)
   };
 
   const handleCancelEdit = () => {
@@ -273,6 +302,22 @@ export function AdminUsersPage() {
     }
   };
 
+  const hasActiveFilters =
+    searchValue.trim() !== "" ||
+    selectedEnterpriseId !== "" ||
+    selectedRole !== "" ||
+    selectedActiveStatus !== "" ||
+    dateSortOrder !== "newest";
+
+  const handleResetFilters = () => {
+    setSearchValue("");
+    setDebouncedSearchValue("");
+    setSelectedEnterpriseId("");
+    setSelectedRole("");
+    setSelectedActiveStatus("");
+    setDateSortOrder("newest");
+  };
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -291,7 +336,7 @@ export function AdminUsersPage() {
   }
 
   return (
-    <Box ref={formRef}>
+    <Box>
       <SectionHeader
         title="Пользователи"
         subtitle="Управление пользователями платформы"
@@ -300,14 +345,167 @@ export function AdminUsersPage() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 7 }}>
           <Paper sx={{ p: 3, borderRadius: 2 }}>
-            <Typography variant="h3" gutterBottom>
-              Список пользователей
-            </Typography>
+
+            <Paper
+              sx={{
+                p: 2.5,
+                mb: 3,
+                borderRadius: 2,
+                backgroundColor: "#F4F6F8",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Фильтры и поиск
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  Используй параметры ниже, чтобы быстрее найти нужного пользователя.
+                </Typography>
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    label="Поиск по ФИО или email"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    fullWidth
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    label="Предприятие"
+                    select
+                    value={selectedEnterpriseId}
+                    onChange={(e) => setSelectedEnterpriseId(e.target.value)}
+                    fullWidth
+                  >
+                    <MenuItem value="">Все предприятия</MenuItem>
+                    {enterprises?.map((enterprise) => (
+                      <MenuItem key={enterprise.id} value={String(enterprise.id)}>
+                        {enterprise.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    label="Роль"
+                    select
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    fullWidth
+                  >
+                    <MenuItem value="">Все роли</MenuItem>
+                    {roleOptions.map((role) => (
+                      <MenuItem key={role.value} value={role.value}>
+                        {role.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    label="Статус"
+                    select
+                    value={selectedActiveStatus}
+                    onChange={(e) =>
+                      setSelectedActiveStatus(e.target.value as ActiveFilter)
+                    }
+                    fullWidth
+                  >
+                    <MenuItem value="">Все пользователи</MenuItem>
+                    <MenuItem value="true">Только активные</MenuItem>
+                    <MenuItem value="false">Только неактивные</MenuItem>
+                  </TextField>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    label="Сортировка по дате"
+                    select
+                    value={dateSortOrder}
+                    onChange={(e) =>
+                      setDateSortOrder(e.target.value as DateSortOrder)
+                    }
+                    fullWidth
+                  >
+                    <MenuItem value="newest">Сначала новые</MenuItem>
+                    <MenuItem value="oldest">Сначала старые</MenuItem>
+                  </TextField>
+                </Grid>
+
+                <Grid size={{ xs: 12 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 2,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleResetFilters}
+                      disabled={!hasActiveFilters}
+                    >
+                      Сбросить фильтры
+                    </Button>
+
+                    {isFetching && (
+                      <Typography variant="caption" color="text.secondary">
+                        Обновление списка...
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+                mb: 2,
+              }}
+            >
+              <Typography variant="h3">
+                Список пользователей
+              </Typography>
+
+              <Chip
+                label={`Найдено: ${users.length}`}
+                size="small"
+                variant="outlined"
+                sx={{
+                  backgroundColor: "background.paper",
+                  fontWeight: 500,
+                }}
+              />
+            </Box>
 
             {users.length === 0 ? (
               <EmptyState
-                title="Пользователи отсутствуют"
-                description="Создайте первого пользователя через форму справа."
+                title={
+                  hasActiveFilters
+                    ? "Пользователи не найдены"
+                    : "Пользователи пока отсутствуют"
+                }
+                description={
+                  hasActiveFilters
+                    ? "Попробуй изменить параметры поиска или сбросить фильтры."
+                    : "Создай первого пользователя через форму справа."
+                }
               />
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -323,6 +521,8 @@ export function AdminUsersPage() {
                         p: 2.5,
                         borderRadius: 2,
                         backgroundColor: "#FAFBFC",
+                        border: "1px solid",
+                        borderColor: "divider",
                       }}
                     >
                       <Box
@@ -342,7 +542,11 @@ export function AdminUsersPage() {
                             {user.full_name}
                           </Typography>
 
-                          <Typography variant="body2">
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ wordBreak: "break-word" }}
+                          >
                             {user.email}
                           </Typography>
                         </Box>
@@ -354,17 +558,25 @@ export function AdminUsersPage() {
                         />
                       </Box>
 
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        Роль: {user.role}
-                      </Typography>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                            Роль:
+                          </Box>{" "}
+                          {getUserRoleLabel(user.role)}
+                        </Typography>
 
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        Предприятие: {enterpriseName}
-                      </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                            Предприятие:
+                          </Box>{" "}
+                          {enterpriseName}
+                        </Typography>
 
-                      <Typography variant="caption" sx={{ display: "block", mb: 2 }}>
-                        Создан: {formatDateTime(user.created_at)}
-                      </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Создан: {formatDateTime(user.created_at)}
+                        </Typography>
+                      </Box>
 
                       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                         <Button
@@ -412,285 +624,310 @@ export function AdminUsersPage() {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 5 }}>
-          <Paper sx={{ p: 3, borderRadius: 2 }}>
-            <Typography variant="h3" gutterBottom>
-              {mode === "create" ? "Добавить пользователя" : "Редактировать пользователя"}
-            </Typography>
+          <Box 
+            sx={{
+              position: {lg: "sticky"},
+              top: 88,
+            }}
+          >
+            <Paper sx={{ p: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)", }}>
+              
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h3" gutterBottom>
+                  {mode === "create" ? "Добавить пользователя" : "Редактировать пользователя"}
+                </Typography>
 
-            {serverError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {serverError}
-              </Alert>
-            )}
-
-            {mode === "create" ? (
-              <Box
-                ref={createFormRef}
-                component="form"
-                key="create-user-form"
-                autoComplete="off"
-                onSubmit={createForm.handleSubmit(handleCreate)}
-                sx={{ display: "flex", flexDirection: "column", gap: 2 }}
-              >
-                <Controller
-                  name="full_name"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      label="ФИО"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      error={!!createForm.formState.errors.full_name}
-                      helperText={createForm.formState.errors.full_name?.message}
-                    />
-                  )}
-                />
-
-                <Controller
-                  name="email"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      autoComplete="off"
-                      label="Email"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      error={!!createForm.formState.errors.email}
-                      helperText={createForm.formState.errors.email?.message}
-                    />
-                  )}
-                />
-
-                <Controller
-                  name="password"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      slotProps={{
-                            htmlInput: {
-                                name: "admin_user_create_pass_field",
-                            },
-                      }}
-                      autoComplete="off"
-                      label="Пароль"
-                      type="password"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      error={!!createForm.formState.errors.password}
-                      helperText={createForm.formState.errors.password?.message}
-                    />
-                  )}
-                />
-
-                <Controller
-                  name="role"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      label="Роль"
-                      select
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      error={!!createForm.formState.errors.role}
-                      helperText={createForm.formState.errors.role?.message}
-                    >
-                      {roleOptions.map((role) => (
-                        <MenuItem key={role.value} value={role.value}>
-                          {role.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-
-                <Controller
-                  name="enterprise_id"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      label="Предприятие"
-                      select
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      disabled={createForm.watch("role") === "super_admin"}
-                      error={!!createForm.formState.errors.enterprise_id}
-                      helperText={createForm.formState.errors.enterprise_id?.message}
-                    >
-                      <MenuItem value="">Не выбрано</MenuItem>
-                      {enterprises?.map((enterprise) => (
-                        <MenuItem key={enterprise.id} value={String(enterprise.id)}>
-                          {enterprise.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-
-                <Controller
-                  name="is_active"
-                  control={createForm.control}
-                  render={({ field }) => (
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                        />
-                      }
-                      label="Активен"
-                    />
-                  )}
-                />
-
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  disabled={createMutation.isPending || createForm.formState.isSubmitting}
-                >
-                  {createMutation.isPending || createForm.formState.isSubmitting
-                    ? "Создание..."
-                    : "Создать"}
-                </Button>
+                <Typography variant="body2" color="text.secondary">
+                  {mode === "create"
+                    ? "Заполни данные нового пользователя, выбери роль и предприятие."
+                    : "Измени данные пользователя и сохрани изменения."}
+                </Typography>
               </Box>
-            ) : (
-              <Box
-                component="form"
-                autoComplete="off"
-                key={`edit-user-form-${editingUserId}`}
-                onSubmit={updateForm.handleSubmit(handleUpdate)}
-                sx={{ display: "flex", flexDirection: "column", gap: 2 }}
-              >
-                <Controller
-                  name="full_name"
-                  control={updateForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      label="ФИО"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      error={!!updateForm.formState.errors.full_name}
-                      helperText={updateForm.formState.errors.full_name?.message}
-                    />
-                  )}
-                />
 
-                <Controller
-                  name="email"
-                  control={updateForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      label="Email"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      error={!!updateForm.formState.errors.email}
-                      helperText={updateForm.formState.errors.email?.message}
-                    />
-                  )}
-                />
+              {serverError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {serverError}
+                </Alert>
+              )}
 
-                <Controller
-                  name="role"
-                  control={updateForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      label="Роль"
-                      select
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      error={!!updateForm.formState.errors.role}
-                      helperText={updateForm.formState.errors.role?.message}
-                    >
-                      {roleOptions.map((role) => (
-                        <MenuItem key={role.value} value={role.value}>
-                          {role.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
+              {mode === "create" ? (
+                <Box
+                  ref={createFormRef}
+                  component="form"
+                  key="create-user-form"
+                  autoComplete="off"
+                  onSubmit={createForm.handleSubmit(handleCreate)}
+                  sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+                >
+                  <Controller
+                    name="full_name"
+                    control={createForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        label="ФИО"
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        error={!!createForm.formState.errors.full_name}
+                        helperText={createForm.formState.errors.full_name?.message}
+                      />
+                    )}
+                  />
 
-                <Controller
-                  name="enterprise_id"
-                  control={updateForm.control}
-                  render={({ field }) => (
-                    <TextField
-                      label="Предприятие"
-                      select
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      disabled={updateForm.watch("role") === "super_admin"}
-                      error={!!updateForm.formState.errors.enterprise_id}
-                      helperText={updateForm.formState.errors.enterprise_id?.message}
-                    >
-                      <MenuItem value="">Не выбрано</MenuItem>
-                      {enterprises?.map((enterprise) => (
-                        <MenuItem key={enterprise.id} value={String(enterprise.id)}>
-                          {enterprise.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
+                  <Controller
+                    name="email"
+                    control={createForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        autoComplete="off"
+                        label="Email"
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        error={!!createForm.formState.errors.email}
+                        helperText={createForm.formState.errors.email?.message}
+                      />
+                    )}
+                  />
 
-                <Controller
-                  name="is_active"
-                  control={updateForm.control}
-                  render={({ field }) => (
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                        />
-                      }
-                      label="Активен"
-                    />
-                  )}
-                />
+                  <Controller
+                    name="password"
+                    control={createForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        slotProps={{
+                              htmlInput: {
+                                  name: "admin_user_create_pass_field",
+                              },
+                        }}
+                        autoComplete="off"
+                        label="Пароль"
+                        type="password"
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        error={!!createForm.formState.errors.password}
+                        helperText={createForm.formState.errors.password?.message}
+                      />
+                    )}
+                  />
 
-                <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                  <Controller
+                    name="role"
+                    control={createForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        label="Роль"
+                        select
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        error={!!createForm.formState.errors.role}
+                        helperText={createForm.formState.errors.role?.message}
+                      >
+                        {roleOptions.map((role) => (
+                          <MenuItem key={role.value} value={role.value}>
+                            {role.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
+                  />
+
+                  <Controller
+                    name="enterprise_id"
+                    control={createForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        label="Предприятие"
+                        select
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        disabled={createForm.watch("role") === "super_admin"}
+                        error={!!createForm.formState.errors.enterprise_id}
+                        helperText={createForm.formState.errors.enterprise_id?.message}
+                      >
+                        <MenuItem value="">Не выбрано</MenuItem>
+                        {activeEnterprises?.map((enterprise) => (
+                          <MenuItem key={enterprise.id} value={String(enterprise.id)}>
+                            {enterprise.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
+                  />
+
+                  <Controller
+                    name="is_active"
+                    control={createForm.control}
+                    render={({ field }) => (
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                          />
+                        }
+                        label="Активен"
+                      />
+                    )}
+                  />
+
                   <Button
                     type="submit"
                     variant="contained"
                     color="primary"
-                    disabled={updateMutation.isPending || updateForm.formState.isSubmitting}
+                    disabled={createMutation.isPending || createForm.formState.isSubmitting}
                   >
-                    {updateMutation.isPending || updateForm.formState.isSubmitting
-                      ? "Сохранение..."
-                      : "Сохранить"}
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outlined"
-                    color="primary"
-                    onClick={handleCancelEdit}
-                  >
-                    Отмена
+                    {createMutation.isPending || createForm.formState.isSubmitting
+                      ? "Создание..."
+                      : "Создать"}
                   </Button>
                 </Box>
-              </Box>
-            )}
-          </Paper>
+              ) : (
+                <Box
+                  component="form"
+                  autoComplete="off"
+                  key={`edit-user-form-${editingUserId}`}
+                  onSubmit={updateForm.handleSubmit(handleUpdate)}
+                  sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+                >
+                  <Controller
+                    name="full_name"
+                    control={updateForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        label="ФИО"
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        error={!!updateForm.formState.errors.full_name}
+                        helperText={updateForm.formState.errors.full_name?.message}
+                      />
+                    )}
+                  />
+
+                  <Controller
+                    name="email"
+                    control={updateForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        label="Email"
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        error={!!updateForm.formState.errors.email}
+                        helperText={updateForm.formState.errors.email?.message}
+                      />
+                    )}
+                  />
+
+                  <Controller
+                    name="role"
+                    control={updateForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        label="Роль"
+                        select
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        error={!!updateForm.formState.errors.role}
+                        helperText={updateForm.formState.errors.role?.message}
+                      >
+                        {roleOptions.map((role) => (
+                          <MenuItem key={role.value} value={role.value}>
+                            {role.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
+                  />
+
+                  <Controller
+                    name="enterprise_id"
+                    control={updateForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        label="Предприятие"
+                        select
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        disabled={updateForm.watch("role") === "super_admin"}
+                        error={!!updateForm.formState.errors.enterprise_id}
+                        helperText={updateForm.formState.errors.enterprise_id?.message}
+                      >
+                        <MenuItem value="">Не выбрано</MenuItem>
+                        {enterprises?.map((enterprise) => (
+                          <MenuItem key={enterprise.id} value={String(enterprise.id)}>
+                            {enterprise.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
+                  />
+
+                  <Controller
+                    name="is_active"
+                    control={updateForm.control}
+                    render={({ field }) => (
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                          />
+                        }
+                        label="Активен"
+                      />
+                    )}
+                  />
+
+                  <Box sx={{ display: "flex", gap: 1.5, flexDirection: { xs: "column", sm: "row"} }}>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="primary"
+                      disabled={updateMutation.isPending || updateForm.formState.isSubmitting}
+                      sx={{
+                        flex: 1,
+                        minWidth: 120,
+                        px: 3,
+                      }}
+                    >
+                      {updateMutation.isPending || updateForm.formState.isSubmitting
+                        ? "Сохранение..."
+                        : "Сохранить"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      color="primary"
+                      sx={{
+                        flex: 1,
+                        minWidth: 100,
+                      }}
+                      onClick={handleCancelEdit}
+                    >
+                      Отмена
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </Paper>
+          </Box>
         </Grid>
       </Grid>
 

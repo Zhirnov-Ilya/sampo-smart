@@ -1,5 +1,17 @@
 import { apiClient } from "./axios";
 
+export type AdminUserSortOrder = "newest" | "oldest";
+
+export type AdminUserActiveFilter = "true" | "false" | "";
+
+export type AdminUserFilters = {
+  search?: string;
+  enterprise_id?: string;
+  role?: string;
+  is_active?: AdminUserActiveFilter;
+  sort_order?: AdminUserSortOrder;
+};
+
 export type AdminUser = {
     id: number;
     full_name: string;
@@ -32,9 +44,20 @@ export type ResetPasswordRequest = {
     new_password: string;
 };
 
-export async function getAdminUsersRequest(): Promise<AdminUser[]> {
-    const response = await apiClient.get("/users");
-    return response.data;
+export async function getAdminUsersRequest(
+  filters: AdminUserFilters = {}
+): Promise<AdminUser[]> {
+  const response = await apiClient.get("/users", {
+    params: {
+      search: filters.search || undefined,
+      enterprise_id: filters.enterprise_id || undefined,
+      role: filters.role || undefined,
+      is_active: filters.is_active || undefined,
+      sort_order: filters.sort_order || "newest",
+    },
+  });
+
+  return response.data;
 }
 
 export async function createUserRequest(

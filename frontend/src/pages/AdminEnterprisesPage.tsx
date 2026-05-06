@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Alert,
   Box,
@@ -10,6 +10,7 @@ import {
   TextField,
   Typography,
   FormControlLabel,
+  MenuItem,
 } from "@mui/material";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,9 +31,36 @@ import { formatDateTime } from "../utils/format";
 
 
 type EditMode = "create" | "edit";
+type DateSortOrder = "newest" | "oldest";
+type ActiveFilter = "" | "true" | "false";
 
 export function AdminEnterprisesPage() {
-  const { data: enterprises, isLoading, isError } = useAdminEnterprises();
+  const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
+  const [selectedActiveStatus, setSelectedActiveStatus] = useState<ActiveFilter>("");
+  const [dateSortOrder, setDateSortOrder] = useState<DateSortOrder>("newest");
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchValue(searchValue.trim());
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchValue]);
+
+  const {
+    data: enterprises,
+    isLoading,
+    isError,
+    isFetching,
+  } = useAdminEnterprises({
+    search: debouncedSearchValue,
+    is_active: selectedActiveStatus,
+    sort_order: dateSortOrder,
+  });
+
   const createMutation = useCreateEnterprise();
   const updateMutation = useUpdateEnterprise();
   const deactivateMutation = useDeactivateEnterprise();
@@ -41,7 +69,6 @@ export function AdminEnterprisesPage() {
   const [serverError, setServerError] = useState("");
   const [mode, setMode] = useState<EditMode>("create");
   const [editingEnterpriseId, setEditingEnterpriseId] = useState<number | null>(null);
-  const formRef = useRef<HTMLDivElement | null>(null);
 
   const {
     handleSubmit,
@@ -110,13 +137,6 @@ export function AdminEnterprisesPage() {
       contact_email: enterprise.contact_email || "",
       is_active: enterprise.is_active,
     });
-
-    setTimeout(() => {
-      formRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 0);
   };
 
   const handleCancelEdit = () => {
@@ -139,6 +159,18 @@ export function AdminEnterprisesPage() {
     await activateMutation.mutateAsync(enterpriseId);
   };
 
+  const hasActiveFilters =
+    searchValue.trim() !== "" ||
+    selectedActiveStatus !== "" ||
+    dateSortOrder !== "newest";
+
+  const handleResetFilters = () => {
+    setSearchValue("");
+    setDebouncedSearchValue("");
+    setSelectedActiveStatus("");
+    setDateSortOrder("newest");
+  };
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -157,7 +189,7 @@ export function AdminEnterprisesPage() {
   }
 
   return (
-    <Box ref={formRef}>
+    <Box>
       <SectionHeader
         title="Предприятия"
         subtitle="Управление предприятиями клиентов платформы"
@@ -166,14 +198,132 @@ export function AdminEnterprisesPage() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 7 }}>
           <Paper sx={{ p: 3, borderRadius: 2 }}>
-            <Typography variant="h3" gutterBottom>
-              Список предприятий
-            </Typography>
+            <Paper
+              sx={{
+                p: 2.5,
+                mb: 3,
+                borderRadius: 2,
+                backgroundColor: "#F4F6F8",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Фильтры и поиск
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  Используй параметры ниже, чтобы быстрее найти нужное предприятие.
+                </Typography>
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    label="Поиск по названию, отрасли или email"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    fullWidth
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    label="Статус"
+                    select
+                    value={selectedActiveStatus}
+                    onChange={(e) =>
+                      setSelectedActiveStatus(e.target.value as ActiveFilter)
+                    }
+                    fullWidth
+                  >
+                    <MenuItem value="">Все предприятия</MenuItem>
+                    <MenuItem value="true">Только активные</MenuItem>
+                    <MenuItem value="false">Только неактивные</MenuItem>
+                  </TextField>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    label="Сортировка по дате"
+                    select
+                    value={dateSortOrder}
+                    onChange={(e) =>
+                      setDateSortOrder(e.target.value as DateSortOrder)
+                    }
+                    fullWidth
+                  >
+                    <MenuItem value="newest">Сначала новые</MenuItem>
+                    <MenuItem value="oldest">Сначала старые</MenuItem>
+                  </TextField>
+                </Grid>
+
+                <Grid size={{ xs: 12 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 2,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleResetFilters}
+                      disabled={!hasActiveFilters}
+                    >
+                      Сбросить фильтры
+                    </Button>
+
+                    {isFetching && (
+                      <Typography variant="caption" color="text.secondary">
+                        Обновление списка...
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+                mb: 2,
+              }}
+            >
+              <Typography variant="h3">
+                Список предприятий
+              </Typography>
+
+              <Chip
+                label={`Найдено: ${enterprises.length}`}
+                size="small"
+                variant="outlined"
+                sx={{
+                  backgroundColor: "background.paper",
+                  fontWeight: 500,
+                }}
+              />
+            </Box>
 
             {enterprises.length === 0 ? (
               <EmptyState
-                title="Предприятия пока отсутствуют"
-                description="Создай первое предприятие через форму справа."
+                title={
+                  hasActiveFilters
+                    ? "Предприятия не найдены"
+                    : "Предприятия пока отсутствуют"
+                }
+                description={
+                  hasActiveFilters
+                    ? "Попробуй изменить параметры поиска или сбросить фильтры."
+                    : "Создай первое предприятие через форму справа."
+                }
               />
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -184,6 +334,8 @@ export function AdminEnterprisesPage() {
                       p: 2.5,
                       borderRadius: 2,
                       backgroundColor: "#FAFBFC",
+                      border: "1px solid",
+                      borderColor: "divider",
                     }}
                   >
                     <Box
@@ -215,17 +367,30 @@ export function AdminEnterprisesPage() {
                       />
                     </Box>
 
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      Отрасль: {enterprise.industry || "—"}
-                    </Typography>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                          Отрасль:
+                        </Box>{" "}
+                        {enterprise.industry || "—"}
+                      </Typography>
 
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      Email: {enterprise.contact_email || "—"}
-                    </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ wordBreak: "break-word" }}
+                      >
+                        <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                          Email:
+                        </Box>{" "}
+                        {enterprise.contact_email || "—"}
+                      </Typography>
 
-                    <Typography variant="caption" sx={{ display: "block", mb: 2 }}>
-                      Создано: {formatDateTime(enterprise.created_at)}
-                    </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Создано: {formatDateTime(enterprise.created_at)}
+                      </Typography>
+                    </Box>
+
 
                     <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                       <Button
@@ -263,120 +428,142 @@ export function AdminEnterprisesPage() {
           </Paper>
         </Grid>
 
-        <Grid size={{ xs: 12, lg: 5 }}>
-          <Paper sx={{ p: 3, borderRadius: 2 }}>
-            <Typography variant="h3" gutterBottom>
-              {mode === "create" ? "Добавить предприятие" : "Редактировать предприятие"}
-            </Typography>
+        <Grid size={{ xs: 12, lg: 5 }} sx={{ alignSelf: "flex-start", minHeight: "100vh", }}>
+            <Paper sx={{
+               p: 3, borderRadius: 2, boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+               position:"sticky",
+               top: 88,
+               }}>
 
-            {serverError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {serverError}
-              </Alert>
-            )}
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h3" gutterBottom>
+                  {mode === "create" ? "Добавить предприятие" : "Редактировать предприятие"}
+                </Typography>
 
-            <Box
-              component="form"
-              onSubmit={handleSubmit(onSubmit)}
-              sx={{ display: "flex", flexDirection: "column", gap: 2 }}
-            >
-                <Controller
-                    name="name"
-                    control={control}
-                    render={({ field }) => (
-                        <TextField
-                            label="Название предприятия"
-                            value={field.value}
-                            onChange={field.onChange}
-                            inputRef={field.ref}
-                            onBlur={field.onBlur}
-                            error={!!errors.name}
-                            helperText={errors.name?.message}
-                        />
-                    )}
-                />
-
-                <Controller
-                    name="industry"
-                    control={control}
-                    render={({ field }) => (
-                        <TextField
-                            label="Отрасль"
-                            value={field.value}
-                            onChange={field.onChange}
-                            inputRef={field.ref}
-                            onBlur={field.onBlur}
-                            error={!!errors.industry}
-                            helperText={errors.industry?.message}
-                        />
-                    )}
-                />
-
-                <Controller
-                    name="contact_email"
-                    control={control}
-                    render = {({ field }) => (
-                        <TextField
-                            label="Контактный email"
-                            value={field.value}
-                            onChange={field.onChange}
-                            inputRef={field.ref}
-                            onBlur={field.onBlur}
-                            error={!!errors.contact_email}
-                            helperText={errors.contact_email?.message}
-                        />
-                    )}
-                />
-                
-              <Controller
-                name="is_active"
-                control={control}
-                render={({ field }) => (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                      />
-                    }
-                    label="Активно"
-                  />
-                )}
-              />
-
-              <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  disabled={
-                    isSubmitting ||
-                    createMutation.isPending ||
-                    updateMutation.isPending
-                  }
-                >
+                <Typography variant="body2" color="text.secondary">
                   {mode === "create"
-                    ? createMutation.isPending || isSubmitting
-                      ? "Создание..."
-                      : "Создать"
-                    : updateMutation.isPending || isSubmitting
-                    ? "Сохранение..."
-                    : "Сохранить"}
-                </Button>
-
-                {mode === "edit" && (
-                  <Button
-                    type="button"
-                    variant="outlined"
-                    color="primary"
-                    onClick={handleCancelEdit}
-                  >
-                    Отмена
-                  </Button>
-                )}
+                    ? "Заполни данные нового предприятия и укажи контактную информацию."
+                    : "Измени данные предприятия и сохрани изменения."}
+                </Typography>
               </Box>
-            </Box>
-          </Paper>
+
+              {serverError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {serverError}
+                </Alert>
+              )}
+
+              <Box
+                component="form"
+                onSubmit={handleSubmit(onSubmit)}
+                sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+              >
+                  <Controller
+                      name="name"
+                      control={control}
+                      render={({ field }) => (
+                          <TextField
+                              label="Название предприятия"
+                              value={field.value}
+                              onChange={field.onChange}
+                              inputRef={field.ref}
+                              onBlur={field.onBlur}
+                              error={!!errors.name}
+                              helperText={errors.name?.message}
+                          />
+                      )}
+                  />
+
+                  <Controller
+                      name="industry"
+                      control={control}
+                      render={({ field }) => (
+                          <TextField
+                              label="Отрасль"
+                              value={field.value}
+                              onChange={field.onChange}
+                              inputRef={field.ref}
+                              onBlur={field.onBlur}
+                              error={!!errors.industry}
+                              helperText={errors.industry?.message}
+                          />
+                      )}
+                  />
+
+                  <Controller
+                      name="contact_email"
+                      control={control}
+                      render = {({ field }) => (
+                          <TextField
+                              label="Контактный email"
+                              value={field.value}
+                              onChange={field.onChange}
+                              inputRef={field.ref}
+                              onBlur={field.onBlur}
+                              error={!!errors.contact_email}
+                              helperText={errors.contact_email?.message}
+                          />
+                      )}
+                  />
+                  
+                <Controller
+                  name="is_active"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                      }
+                      label="Активно"
+                    />
+                  )}
+                />
+
+                <Box sx={{ display: "flex", gap: 1.5, flexDirection: {xs: "column", sm: "row"}, mt: 1 }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    sx={{
+                      flex: 1,
+                      minWidth: 120,
+                      px: 3,
+                    }}
+                    disabled={
+                      isSubmitting ||
+                      createMutation.isPending ||
+                      updateMutation.isPending
+                    }
+                  >
+                    {mode === "create"
+                      ? createMutation.isPending || isSubmitting
+                        ? "Создание..."
+                        : "Создать"
+                      : updateMutation.isPending || isSubmitting
+                      ? "Сохранение..."
+                      : "Сохранить"}
+                  </Button>
+
+                  {mode === "edit" && (
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleCancelEdit}
+                      sx={{
+                        flex: 1,
+                        minWidth: 100,
+                      }}
+                    >
+                      Отмена
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+            </Paper>
         </Grid>
       </Grid>
     </Box>

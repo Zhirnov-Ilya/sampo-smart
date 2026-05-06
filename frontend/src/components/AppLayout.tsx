@@ -25,9 +25,30 @@ import GroupIcon from "@mui/icons-material/Group";
 import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
 
 import { useMe } from "../features/auth/useMe";
+import { getUserRoleLabel } from "../utils/format";
+
+import {
+  isEnterpriseAdmin,
+  isManagerOrAnalyst,
+  isSuperAdmin,
+} from "../utils/roles";
 
 const drawerExpandedWidth = 248;
 const drawerCollapsedWidth = 84;
+
+const sidebarColors = {
+  background: "#FFFFFF",
+  backgroundDark: "#F6FAFD",
+  border: "#E1EAF0",
+
+  active: "#E7F1F7",
+  activeHover: "#DCEBF4",
+  hover: "#F5F9FC",
+
+  text: "#244256",
+  textMuted: "#4F6A7E",
+  activeText: "#2F5F7A",
+};
 
 const menuItems = [
   {
@@ -35,12 +56,6 @@ const menuItems = [
     path: "/dashboard",
     text: "Главная",
     icon: DashboardOutlinedIcon,
-  },
-  {
-    label: "Equipment",
-    path: "/equipment",
-    text: "Оборудование",
-    icon: PrecisionManufacturingOutlinedIcon,
   },
   {
     label: "Downtimes",
@@ -61,10 +76,16 @@ const menuItems = [
     icon: HomeWorkIcon,
   },
   {
-    lable: "Admin Users",
+    label: "Admin Users",
     path: "/admin/users",
     text: "Пользователи",
     icon: GroupIcon,
+  },
+  {
+    label: "Admin Equipment",
+    path: "/admin/equipment",
+    text: "Оборудование",
+    icon: PrecisionManufacturingOutlinedIcon,
   },
   {
     label: "Admin Equipment Types",
@@ -72,18 +93,35 @@ const menuItems = [
     text: "Типы оборудования",
     icon: BuildOutlinedIcon,
   },
-  {
-    label: "Admin Equipment",
-    path: "/admin/equipment",
-    text: "Оборудование (админ)",
-    icon: PrecisionManufacturingOutlinedIcon,
-  },
 ];
 
 export function AppLayout({ children }: PropsWithChildren) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: user } = useMe();
+
+  const availableMenuItems = menuItems.filter((item) => {
+    if (!user) return false;
+
+    if (isSuperAdmin(user.role)) {
+      return true;
+    }
+
+    if (isEnterpriseAdmin(user.role)) {
+      return item.path !== "/admin/enterprises";
+    }
+
+    if (isManagerOrAnalyst(user.role)) {
+      return ![
+        "/admin/enterprises",
+        "/admin/users",
+        "/admin/equipment",
+        "/admin/equipment-types",
+      ].includes(item.path);
+    }
+
+    return false;
+  });
 
   const [open, setOpen] = useState(true);
 
@@ -109,10 +147,10 @@ export function AppLayout({ children }: PropsWithChildren) {
         elevation={0}
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: "background.paper",
-          color: "text.primary",
-          borderBottom: "1px solid",
-          borderColor: "divider",
+          backgroundColor: "#23455B",
+          color: "#F7FBFF",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.10)",
+          boxShadow: "0 4px 14px rgba(35, 69, 91, 0.18)",
         }}
       >
         <Toolbar
@@ -124,42 +162,123 @@ export function AppLayout({ children }: PropsWithChildren) {
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <IconButton onClick={toggleDrawer} color="inherit">
+            <IconButton
+              onClick={toggleDrawer}
+              sx={{
+                color: "#FFFFFF",
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                },
+              }}
+            >
               <MenuIcon />
             </IconButton>
 
+            <Box
+              sx={{
+                width: 42,
+                height: 42,
+                borderRadius: "50%",
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Box
+                component="img"
+                src="/logo.png"
+                alt="Sampo Smart"
+                sx={{
+                  width: 32,
+                  height: 32,
+                  objectFit: "contain",
+                }}
+              />
+            </Box>
+
             <Box>
-              <Typography variant="h3" component="div">
+              <Typography
+                sx={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  lineHeight: 1.15,
+                  color: "#FFFFFF",
+                }}
+              >
                 Sampo Smart
               </Typography>
 
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {user?.enterprise_name ?? "Platform administration"}
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  fontWeight: 400,
+                  lineHeight: 1.3,
+                  color: "rgba(247, 251, 255, 0.72)",
+                  mt: 0.25,
+                }}
+              >
+                {user?.enterprise_name ?? "Главный администратор платформы"}
               </Typography>
             </Box>
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             {user && (
-              <Paper
+             <Paper
+              sx={{
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                backgroundColor: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                boxShadow: "none",
+                minWidth: 160,
+              }}
+            >
+              <Typography
                 sx={{
-                  px: 2,
-                  py: 1,
-                  borderRadius: 2,
-                  backgroundColor: "#FAFBFC",
-                  minWidth: 180,
+                  lineHeight: 1.2,
+                  color: "#FFFFFF",
+                  fontSize: 15,
+                  fontWeight: 500,
                 }}
               >
-                <Typography variant="body1" sx={{ lineHeight: 1.2 }}>
-                  {user.full_name}
-                </Typography>
-                <Typography variant="caption">
-                  {user.role}
-                </Typography>
-              </Paper>
+                {user.full_name}
+              </Typography>
+
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  fontWeight: 400,
+                  lineHeight: 1.3,
+                  color: "rgba(247, 251, 255, 0.70)",
+                  mt: 0.25,
+                }}
+              >
+                {getUserRoleLabel(user.role)}
+              </Typography>
+            </Paper>
             )}
 
-            <Button variant="outlined" color="primary" onClick={handleLogout}>
+            <Button
+              variant="outlined"
+              onClick={handleLogout}
+              sx={{
+                minHeight: 40,
+                px: 2,
+                color: "#FFFFFF",
+                borderColor: "rgba(255,255,255,0.35)",
+                backgroundColor: "transparent",
+                fontWeight: 600,
+
+                "&:hover": {
+                  borderColor: "#FFFFFF",
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                },
+              }}
+            >
               Выйти
             </Button>
           </Box>
@@ -171,13 +290,17 @@ export function AppLayout({ children }: PropsWithChildren) {
         sx={{
           width: open ? drawerExpandedWidth : drawerCollapsedWidth,
           flexShrink: 0,
+
           "& .MuiDrawer-paper": {
             width: open ? drawerExpandedWidth : drawerCollapsedWidth,
             boxSizing: "border-box",
-            backgroundColor: "#FFFFFF",
-            borderRight: "1px solid #D0D5D9",
-            overflowX: "hidden",
+            backgroundColor: sidebarColors.background,
+            color: sidebarColors.text,
+            borderRight: `1px solid ${sidebarColors.border}`,
+            pt: 5,
+            px: 1,
             transition: "width 0.2s ease",
+            overflowX: "hidden",
           },
         }}
       >
@@ -192,22 +315,8 @@ export function AppLayout({ children }: PropsWithChildren) {
           }}
         >
           <Box sx={{ px: 1.5, pt: 2 }}>
-            {open && (
-              <Typography
-                variant="caption"
-                sx={{
-                  display: "block",
-                  px: 1.5,
-                  mb: 1,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.6,
-                }}
-              >
-              </Typography>
-            )}
-
             <List sx={{ p: 0 }}>
-              {menuItems.map((item) => {
+              {availableMenuItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 const Icon = item.icon;
 
@@ -218,25 +327,36 @@ export function AppLayout({ children }: PropsWithChildren) {
                     sx={{
                       mb: 0.75,
                       px: 1.5,
-                      py: 1.25,
+                      py: 1.15,
                       borderRadius: 2,
                       alignItems: "center",
                       justifyContent: open ? "flex-start" : "center",
-                      backgroundColor: isActive ? "#E8EBED" : "transparent",
+
+                      color: isActive ? sidebarColors.activeText : sidebarColors.textMuted,
+                      backgroundColor: isActive ? sidebarColors.active : "transparent",
                       border: isActive
-                        ? "1px solid #D0D5D9"
+                        ? "1px solid #D7E6F0"
                         : "1px solid transparent",
+
                       "&:hover": {
-                        backgroundColor: isActive ? "#E8EBED" : "#F5F7F9",
+                        backgroundColor: isActive
+                          ? sidebarColors.activeHover
+                          : sidebarColors.hover,
+                        color: isActive ? sidebarColors.activeText : sidebarColors.text,
+                      },
+
+                      "& .MuiSvgIcon-root": {
+                        color: "inherit",
                       },
                     }}
                   >
                     <Box
                       sx={{
-                        width: 4,
+                        width: 3,
                         alignSelf: "stretch",
                         borderRadius: 999,
-                        backgroundColor: isActive ? "#3E5C76" : "transparent",
+                        backgroundColor: isActive ? "#2F6E8A" : "transparent",
+                        opacity: isActive ? 1 : 0,
                         mr: open ? 1.5 : 0,
                       }}
                     />
@@ -246,26 +366,31 @@ export function AppLayout({ children }: PropsWithChildren) {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        minWidth: open ? 28 : "auto",
                         mr: open ? 1.5 : 0,
-                        color: isActive ? "primary.main" : "text.secondary",
+                        color: "inherit",
                       }}
                     >
-                      <Icon fontSize="small" />
+                      <Icon
+                        sx={{
+                          color: "inherit",
+                          fontSize: 21,
+                        }}
+                      />
                     </Box>
 
                     {open && (
                       <ListItemText
-                        primary={
-                          <Typography
-                            sx={{
+                        primary={item.text}
+                        slotProps={{
+                          primary: {
+                            sx: {
+                              color: "inherit",
                               fontSize: 15,
-                              fontWeight: isActive ? 600 : 400,
-                              color: isActive ? "primary.main" : "text.primary",
-                            }}
-                          >
-                            {item.text}
-                          </Typography>
-                        }
+                              fontWeight: isActive ? 500 : 400,
+                            },
+                          },
+                        }}
                       />
                     )}
                   </ListItemButton>
@@ -276,19 +401,41 @@ export function AppLayout({ children }: PropsWithChildren) {
 
           {open && (
             <Box sx={{ p: 2 }}>
-              <Divider sx={{ mb: 2 }} />
+              <Divider
+                sx={{
+                  mb: 2,
+                  borderColor: "rgba(255, 255, 255, 0.18)",
+                }}
+              />
 
               <Paper
                 sx={{
                   p: 2,
                   borderRadius: 2,
-                  backgroundColor: "#FAFBFC",
+                  backgroundColor: "#F6FAFD",
+                  border: "1px solid #E1EAF0",
+                  boxShadow: "none",
                 }}
               >
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "#244256",
+                    fontWeight: 600,
+                  }}
+                >
                   Рабочая среда
                 </Typography>
-                <Typography variant="caption">
+
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    mt: 1,
+                    color: "#6F8798",
+                    lineHeight: 1.6,
+                  }}
+                >
                   Система мониторинга оборудования, простоев и AI-гипотез.
                 </Typography>
               </Paper>

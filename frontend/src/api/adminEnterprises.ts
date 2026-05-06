@@ -1,5 +1,15 @@
 import { apiClient } from "./axios";
 
+export type AdminEnterpriseActiveFilter = "true" | "false" | "";
+
+export type AdminEnterpriseSortOrder = "newest" | "oldest";
+
+export type AdminEnterpriseFilters = {
+    search?: string;
+    is_active?: AdminEnterpriseActiveFilter;
+    sort_order?: AdminEnterpriseSortOrder;
+};
+
 export type AdminEnterprise = {
     id: number;
     name: string;
@@ -22,10 +32,19 @@ export type UpdateEnterpriseRequest = {
     industry: string | null;
     contact_email: string | null;
     is_active: boolean;
-}
+};
 
-export async function getAdminEnterprisesRequest(): Promise<AdminEnterprise[]> {
-    const response = await apiClient.get("/enterprises");
+export async function getAdminEnterprisesRequest(
+    filters: AdminEnterpriseFilters = {}
+): Promise<AdminEnterprise[]> {
+    const response = await apiClient.get("/enterprises", {
+        params: {
+            search: filters.search || undefined,
+            is_active: filters.is_active || undefined,
+            sort_order: filters.sort_order || "newest",
+        },
+    });
+
     return response.data;
 }
 

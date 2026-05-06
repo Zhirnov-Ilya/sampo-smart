@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 
 import {
     activateEnterpriseRequest,
@@ -6,12 +6,14 @@ import {
     deactivateEnterpriseRequest,
     getAdminEnterprisesRequest,
     updateEnterpriseRequest,
+    type AdminEnterpriseFilters
 } from "../../api/adminEnterprises";
 
-export function useAdminEnterprises() {
+export function useAdminEnterprises(filters: AdminEnterpriseFilters = {}) {
     return useQuery({
-        queryKey: ["admin-enterprises"],
-        queryFn: getAdminEnterprisesRequest,
+        queryKey: ["admin-enterprises", filters],
+        queryFn: () => getAdminEnterprisesRequest(filters),
+        placeholderData: keepPreviousData,
     });
 }
 

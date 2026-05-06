@@ -1,6 +1,7 @@
 _pycache_/
 venv/
-.env/
+backend/.env/
+.env
 
 # Logs
 logs
