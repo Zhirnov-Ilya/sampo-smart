@@ -32,12 +32,19 @@ import { PageLoader } from "../components/PageLoader";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/EmptyState";
 import { formatDateTime } from "../utils/format";
+import { useMe } from "../features/auth/useMe";
+import { isSuperAdmin } from "../utils/roles";
 
 type EditMode = "create" | "edit";
 type DateSortOrder = "newest" | "oldest";
 type ActiveFilter = "" | "true" | "false";
 
 export function AdminEquipmentPage() {
+
+  const { data: currentUser } = useMe();
+  const currentUserIsSuperAdmin = isSuperAdmin(currentUser?.role);
+  const currentUserEnterpriseId = currentUser?.enterprise_id != null ? String(currentUser.enterprise_id) : "";
+
   const { data: enterprises } = useAdminEnterprises();
   const { data: equipmentTypes } = useAdminEquipmentTypes();
 
@@ -102,26 +109,47 @@ const { data: activeEquipmentTypes } = useAdminEquipmentTypes({
     },
   });
 
+  useEffect(() => {
+    if (!currentUserIsSuperAdmin && currentUserEnterpriseId) {
+      form.setValue("enterprise_id", currentUserEnterpriseId, {
+        shouldValidate: true,
+      });
+
+      setSelectedEnterpriseId(currentUserEnterpriseId);
+    }
+  }, [currentUserIsSuperAdmin, currentUserEnterpriseId, form]);
+
+  const getEmptyFormValues = (): AdminEquipmentFormValues => ({
+    equipment_code: "",
+    name: "",
+    location: "",
+    enterprise_id: currentUserIsSuperAdmin ? "" : currentUserEnterpriseId,
+    equipment_type_id: "",
+    is_active: true,
+  });
+
   const handleCreate = async (data: AdminEquipmentFormValues) => {
     try {
       setServerError("");
+
+      const enterpriseId = currentUserIsSuperAdmin
+        ? Number(data.enterprise_id)
+        : currentUser?.enterprise_id;
+
+      if (!enterpriseId) {
+        setServerError("Не удалось определить предприятие для оборудования.");
+        return;
+      }
 
       await createMutation.mutateAsync({
         equipment_code: data.equipment_code,
         name: data.name,
         location: data.location || null,
-        enterprise_id: Number(data.enterprise_id),
+        enterprise_id: enterpriseId,
         equipment_type_id: Number(data.equipment_type_id),
       });
 
-      form.reset({
-        equipment_code: "",
-        name: "",
-        location: "",
-        enterprise_id: "",
-        equipment_type_id: "",
-        is_active: true,
-      });
+      form.reset(getEmptyFormValues());
     } catch (error: any) {
       setServerError(
         error?.response?.data?.detail || "Не удалось создать оборудование"
@@ -135,13 +163,22 @@ const { data: activeEquipmentTypes } = useAdminEquipmentTypes({
     try {
       setServerError("");
 
+      const enterpriseId = currentUserIsSuperAdmin
+        ? Number(data.enterprise_id)
+        : currentUser?.enterprise_id;
+
+      if (!enterpriseId) {
+        setServerError("Не удалось определить предприятие для оборудования.");
+        return;
+      }
+
       await updateMutation.mutateAsync({
         equipmentId: editingEquipmentId,
         data: {
           equipment_code: data.equipment_code,
           name: data.name,
           location: data.location || null,
-          enterprise_id: Number(data.enterprise_id),
+          enterprise_id: enterpriseId,
           equipment_type_id: Number(data.equipment_type_id),
           is_active: data.is_active,
         },
@@ -150,14 +187,7 @@ const { data: activeEquipmentTypes } = useAdminEquipmentTypes({
       setMode("create");
       setEditingEquipmentId(null);
 
-      form.reset({
-        equipment_code: "",
-        name: "",
-        location: "",
-        enterprise_id: "",
-        equipment_type_id: "",
-        is_active: true,
-      });
+      form.reset(getEmptyFormValues());
     } catch (error: any) {
       setServerError(
         error?.response?.data?.detail || "Не удалось обновить оборудование"
@@ -191,14 +221,7 @@ const { data: activeEquipmentTypes } = useAdminEquipmentTypes({
     setMode("create");
     setEditingEquipmentId(null);
 
-    form.reset({
-      equipment_code: "",
-      name: "",
-      location: "",
-      enterprise_id: "",
-      equipment_type_id: "",
-      is_active: true,
-    });
+    form.reset(getEmptyFormValues());
   };
 
   const handleDeactivate = async (equipmentId: number) => {
@@ -210,19 +233,21 @@ const { data: activeEquipmentTypes } = useAdminEquipmentTypes({
   };
 
 const hasActiveFilters =
-    searchValue.trim() !== "" ||
-    selectedEnterpriseId !== "" ||
-    selectedEquipmentTypeId !== "" ||
-    selectedActiveStatus !== "" ||
-    dateSortOrder !== "newest";
+  searchValue.trim() !== "" ||
+  (currentUserIsSuperAdmin && selectedEnterpriseId !== "") ||
+  selectedEquipmentTypeId !== "" ||
+  selectedActiveStatus !== "" ||
+  dateSortOrder !== "newest";
 
 const handleResetFilters = () => {
-    setSearchValue("");
-    setDebouncedSearchValue("");
-    setSelectedEnterpriseId("");
-    setSelectedEquipmentTypeId("");
-    setSelectedActiveStatus("");
-    setDateSortOrder("newest");
+  setSearchValue("");
+  setDebouncedSearchValue("");
+  setSelectedEnterpriseId(
+    currentUserIsSuperAdmin ? "" : currentUserEnterpriseId
+  );
+  setSelectedEquipmentTypeId("");
+  setSelectedActiveStatus("");
+  setDateSortOrder("newest");
 };
 
   if (isLoading) {
@@ -614,6 +639,7 @@ const handleResetFilters = () => {
                   )}
                 />
 
+                {currentUserIsSuperAdmin ? (
                 <Controller
                   name="enterprise_id"
                   control={form.control}
@@ -637,6 +663,13 @@ const handleResetFilters = () => {
                     </TextField>
                   )}
                 />
+              ) : (
+                <TextField
+                  label="Предприятие"
+                  value={currentUser?.enterprise_name ?? "Ваше предприятие"}
+                  disabled
+                />
+              )}
 
                 <Controller
                   name="equipment_type_id"

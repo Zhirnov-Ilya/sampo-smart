@@ -40,6 +40,9 @@ import { PageLoader } from "../components/PageLoader";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/EmptyState";
 import { formatDateTime, getUserRoleLabel } from "../utils/format";
+import { useMe } from "../features/auth/useMe";
+import { isSuperAdmin } from "../utils/roles";
+
 
 type EditMode = "create" | "edit";
 type DateSortOrder = "newest" | "oldest";
@@ -53,6 +56,11 @@ const roleOptions = [
 ];
 
 export function AdminUsersPage() {
+
+  const { data: currentUser } = useMe();
+  const currentUserIsSuperAdmin = isSuperAdmin(currentUser?.role);
+  const currentUserEnterpriseId = currentUser?.enterprise_id != null ? String(currentUser.enterprise_id) : "";
+  
   const { data: enterprises } = useAdminEnterprises();
   const { data: activeEnterprises } = useAdminEnterprises({
     is_active: "true",
@@ -137,9 +145,69 @@ export function AdminUsersPage() {
     },
   });
 
+  useEffect(() => {
+    if (!currentUserIsSuperAdmin && currentUserEnterpriseId) {
+      createForm.setValue("enterprise_id", currentUserEnterpriseId, {
+        shouldValidate: true,
+      });
+
+      updateForm.setValue("enterprise_id", currentUserEnterpriseId, {
+        shouldValidate: true,
+      });
+
+      setSelectedEnterpriseId(currentUserEnterpriseId);
+    }
+  }, [
+    currentUserIsSuperAdmin,
+    currentUserEnterpriseId,
+    createForm,
+    updateForm,
+  ]);
+
+  const getEmptyCreateFormValues = (): AdminUserCreateFormValues => ({
+    full_name: "",
+    email: "",
+    password: "",
+    role: "manager",
+    is_active: true,
+    enterprise_id: currentUserIsSuperAdmin ? "" : currentUserEnterpriseId,
+  });
+
+  const getEmptyUpdateFormValues = (): AdminUserUpdateFormValues => ({
+    full_name: "",
+    email: "",
+    role: "manager",
+    is_active: true,
+    enterprise_id: currentUserIsSuperAdmin ? "" : currentUserEnterpriseId,
+  });
+
   const handleCreate = async (data: AdminUserCreateFormValues) => {
     try {
       setServerError("");
+
+      if (
+        !currentUserIsSuperAdmin &&
+        !["manager", "analyst"].includes(data.role)
+      ) {
+        setServerError(
+          "Администратор предприятия может создавать только менеджеров и аналитиков."
+        );
+        return;
+      }
+
+      const enterpriseId =
+        data.role === "super_admin"
+          ? null
+          : currentUserIsSuperAdmin
+          ? data.enterprise_id
+            ? Number(data.enterprise_id)
+            : null
+          : currentUser?.enterprise_id ?? null;
+
+      if (data.role !== "super_admin" && !enterpriseId) {
+        setServerError("Не удалось определить предприятие пользователя.");
+        return;
+      }
 
       await createMutation.mutateAsync({
         full_name: data.full_name,
@@ -147,37 +215,25 @@ export function AdminUsersPage() {
         password: data.password,
         role: data.role,
         is_active: data.is_active,
-        enterprise_id:
-          data.role === "super_admin"
-            ? null
-            : data.enterprise_id
-            ? Number(data.enterprise_id)
-            : null,
+        enterprise_id: enterpriseId,
       });
 
-      createForm.reset({
-        full_name: "",
-        email: "",
-        password: "",
-        role: "manager",
-        is_active: true,
-        enterprise_id: "",
-      });
+      createForm.reset(getEmptyCreateFormValues());
 
       setTimeout(() => {
         const form = createFormRef.current;
         if (!form) return;
 
         const emailInput = form.querySelector(
-            `input[name="email"]`
+          `input[name="email"]`
         ) as HTMLInputElement | null;
 
         const passwordInput = form.querySelector(
-            `input[name="password"]`
+          `input[name="password"]`
         ) as HTMLInputElement | null;
 
-        if (emailInput) emailInput.value="";
-        if (passwordInput) passwordInput.value="";
+        if (emailInput) emailInput.value = "";
+        if (passwordInput) passwordInput.value = "";
       }, 0);
     } catch (error: any) {
       setServerError(
@@ -192,6 +248,30 @@ export function AdminUsersPage() {
     try {
       setServerError("");
 
+      if (
+        !currentUserIsSuperAdmin &&
+        !["manager", "analyst"].includes(data.role)
+      ) {
+        setServerError(
+          "Администратор предприятия может назначать только роли менеджера и аналитика."
+        );
+        return;
+      }
+
+      const enterpriseId =
+        data.role === "super_admin"
+          ? null
+          : currentUserIsSuperAdmin
+          ? data.enterprise_id
+            ? Number(data.enterprise_id)
+            : null
+          : currentUser?.enterprise_id ?? null;
+
+      if (data.role !== "super_admin" && !enterpriseId) {
+        setServerError("Не удалось определить предприятие пользователя.");
+        return;
+      }
+
       await updateMutation.mutateAsync({
         userId: editingUserId,
         data: {
@@ -199,25 +279,14 @@ export function AdminUsersPage() {
           email: data.email,
           role: data.role,
           is_active: data.is_active,
-          enterprise_id:
-            data.role === "super_admin"
-              ? null
-              : data.enterprise_id
-              ? Number(data.enterprise_id)
-              : null,
+          enterprise_id: enterpriseId,
         },
       });
 
       setMode("create");
       setEditingUserId(null);
 
-      updateForm.reset({
-        full_name: "",
-        email: "",
-        role: "manager",
-        is_active: true,
-        enterprise_id: "",
-      });
+      updateForm.reset(getEmptyUpdateFormValues());
     } catch (error: any) {
       setServerError(
         error?.response?.data?.detail || "Не удалось обновить пользователя"
@@ -249,13 +318,7 @@ export function AdminUsersPage() {
     setMode("create");
     setEditingUserId(null);
 
-    updateForm.reset({
-      full_name: "",
-      email: "",
-      role: "manager",
-      is_active: true,
-      enterprise_id: "",
-    });
+    updateForm.reset(getEmptyUpdateFormValues());
   };
 
   const handleDeactivate = async (userId: number) => {
@@ -304,7 +367,7 @@ export function AdminUsersPage() {
 
   const hasActiveFilters =
     searchValue.trim() !== "" ||
-    selectedEnterpriseId !== "" ||
+    (currentUserIsSuperAdmin && selectedEnterpriseId !== "") ||
     selectedRole !== "" ||
     selectedActiveStatus !== "" ||
     dateSortOrder !== "newest";
@@ -312,7 +375,9 @@ export function AdminUsersPage() {
   const handleResetFilters = () => {
     setSearchValue("");
     setDebouncedSearchValue("");
-    setSelectedEnterpriseId("");
+    setSelectedEnterpriseId(
+      currentUserIsSuperAdmin ? "" : currentUserEnterpriseId
+    );
     setSelectedRole("");
     setSelectedActiveStatus("");
     setDateSortOrder("newest");
@@ -738,6 +803,7 @@ export function AdminUsersPage() {
                     )}
                   />
 
+                  {currentUserIsSuperAdmin ? (
                   <Controller
                     name="enterprise_id"
                     control={createForm.control}
@@ -762,6 +828,13 @@ export function AdminUsersPage() {
                       </TextField>
                     )}
                   />
+                ) : (
+                  <TextField
+                    label="Предприятие"
+                    value={currentUser?.enterprise_name ?? "Ваше предприятие"}
+                    disabled
+                  />
+                )}
 
                   <Controller
                     name="is_active"
@@ -853,6 +926,7 @@ export function AdminUsersPage() {
                     )}
                   />
 
+                  {currentUserIsSuperAdmin ? (
                   <Controller
                     name="enterprise_id"
                     control={updateForm.control}
@@ -877,6 +951,13 @@ export function AdminUsersPage() {
                       </TextField>
                     )}
                   />
+                ) : (
+                  <TextField
+                    label="Предприятие"
+                    value={currentUser?.enterprise_name ?? "Ваше предприятие"}
+                    disabled
+                  />
+                )}
 
                   <Controller
                     name="is_active"
