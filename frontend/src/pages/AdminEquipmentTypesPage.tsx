@@ -215,7 +215,7 @@ export function AdminEquipmentTypesPage() {
                 </Typography>
 
                 <Typography variant="body2" color="text.secondary">
-                  Используй параметры ниже, чтобы быстрее найти нужный тип оборудования.
+                  Используйте параметры ниже, чтобы быстрее найти нужный тип оборудования.
                 </Typography>
               </Box>
 
@@ -427,7 +427,7 @@ export function AdminEquipmentTypesPage() {
 
               <Typography variant="body2" color="text.secondary">
                 {mode === "create"
-                  ? "Укажи название нового типа оборудования для справочника."
+                  ? "Укажите название нового типа оборудования для справочника."
                   : "Измени название типа оборудования и сохрани изменения."}
               </Typography>
             </Box>

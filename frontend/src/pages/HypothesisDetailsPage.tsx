@@ -23,6 +23,8 @@ import {
   getPriorityLabel,
   getStatusLabel,
 } from "../utils/format";
+import { isAdminRole } from "../utils/roles";
+import { useMe } from "../features/auth/useMe"
 
 function getStatusColor(
   status: string
@@ -115,6 +117,9 @@ function DetailList({
 export function HypothesisDetailsPage() {
   const navigate = useNavigate();
   const params = useParams();
+
+  const {data: user} = useMe();
+  const canChangeHypothesisStatus = isAdminRole(user?.role);
 
   const hypothesisId = Number(params.id);
 
@@ -377,11 +382,12 @@ export function HypothesisDetailsPage() {
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                Измени статус гипотезы после принятия управленческого решения.
+                Измените статус гипотезы после принятия управленческого решения.
               </Typography>
             </Box>
 
-            <TextField
+            {canChangeHypothesisStatus && (
+              <TextField
               select
               label="Статус"
               value={hypothesis.status}
@@ -395,6 +401,8 @@ export function HypothesisDetailsPage() {
               <MenuItem value="in_progress">В работе</MenuItem>
               <MenuItem value="done">Завершена</MenuItem>
             </TextField>
+            )}
+            
 
             {updateStatusMutation.isPending && (
               <Typography

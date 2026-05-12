@@ -214,7 +214,7 @@ export function AdminEnterprisesPage() {
                 </Typography>
 
                 <Typography variant="body2" color="text.secondary">
-                  Используй параметры ниже, чтобы быстрее найти нужное предприятие.
+                  Используйте параметры ниже, чтобы быстрее найти нужное предприятие.
                 </Typography>
               </Box>
 
@@ -442,7 +442,7 @@ export function AdminEnterprisesPage() {
 
                 <Typography variant="body2" color="text.secondary">
                   {mode === "create"
-                    ? "Заполни данные нового предприятия и укажи контактную информацию."
+                    ? "Заполните данные нового предприятия и укажи контактную информацию."
                     : "Измени данные предприятия и сохрани изменения."}
                 </Typography>
               </Box>

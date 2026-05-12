@@ -269,7 +269,7 @@ const handleResetFilters = () => {
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary">
-                    Используй параметры ниже, чтобы быстрее найти нужное оборудование.
+                    Используйте параметры ниже, чтобы быстрее найти нужное оборудование.
                     </Typography>
                 </Box>
 
@@ -543,7 +543,7 @@ const handleResetFilters = () => {
 
                 <Typography variant="body2" color="text.secondary">
                   {mode === "create"
-                    ? "Заполни данные новой единицы оборудования и выбери предприятие."
+                    ? "Заполните данные новой единицы оборудования и выбери предприятие."
                     : "Измени данные оборудования и сохрани изменения."}
                 </Typography>
               </Box>

@@ -10,6 +10,10 @@ export function isEnterpriseAdmin(role: string | null | undefined): boolean {
   return normalizeUserRole(role) === "ENTERPRISE_ADMIN";
 }
 
+export function isAdminRole(role: string | null | undefined): boolean {
+  return isSuperAdmin(role) || isEnterpriseAdmin(role);
+}
+
 export function isManagerOrAnalyst(role: string | null | undefined): boolean {
   const normalizedRole = normalizeUserRole(role);
 

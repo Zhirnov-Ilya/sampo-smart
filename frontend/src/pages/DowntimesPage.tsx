@@ -32,6 +32,7 @@ import { PageLoader } from "../components/PageLoader";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/EmptyState";
 import { formatDateTime, formatMoney } from "../utils/format";
+import { isAdminRole } from "../utils/roles";
 
 type EditMode = "create" | "edit";
 type DateSortOrder = "newest" | "oldest";
@@ -43,7 +44,8 @@ function toDateTimeLocalValue(value: string) {
 export function DowntimesPage() {
   const { data: user } = useMe();
 
-  
+  const canManageDowntimes = isAdminRole(user?.role);
+
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [selectedEquipmentId, setSelectedEquipmentId] = useState("");
@@ -326,7 +328,7 @@ export function DowntimesPage() {
                 </Typography>
 
                 <Typography variant="body2" color="text.secondary">
-                  Используй параметры ниже, чтобы быстрее найти нужный простой.
+                  Используйте параметры ниже, чтобы быстрее найти нужный простой.
                 </Typography>
               </Box>
 
@@ -511,7 +513,7 @@ export function DowntimesPage() {
                             variant="body1"
                             sx={{ fontWeight: 600, mb: 0.5 }}
                           >
-                            Простой #{item.id}
+                            Простой №{item.id}
                           </Typography>
 
                           <Typography variant="body2" color="text.secondary">
@@ -564,6 +566,7 @@ export function DowntimesPage() {
                         </Typography>
                       </Box>
                       
+                      {canManageDowntimes && (
                       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                         <Button
                           variant="outlined"
@@ -584,6 +587,7 @@ export function DowntimesPage() {
                           Удалить
                         </Button>
                       </Box>
+                      )}
                     </Paper>
                   );
                 })}
@@ -607,7 +611,7 @@ export function DowntimesPage() {
 
               <Typography variant="body2" color="text.secondary">
                 {mode === "create"
-                  ? "Заполни данные о простое оборудования."
+                  ? "Заполните данные о простое оборудования."
                   : "Измени данные простоя и сохрани изменения."}
               </Typography>
             </Box>

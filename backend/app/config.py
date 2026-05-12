@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     YANDEX_TEMPERATURE: float 
     YANDEX_MAX_TOKENS: int 
     
+    SUPER_ADMIN_EMAIL: str | None = None
+    SUPER_ADMIN_PASSWORD: str | None = None
+    SUPER_ADMIN_FULL_NAME: str | None = None
+    
     SECRET_KEY: str
     ALGORITHM: str 
     ACCESS_TOKEN_EXPIRE_MINUTES: int 

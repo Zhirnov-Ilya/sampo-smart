@@ -362,7 +362,7 @@ export function AdminUsersPage() {
                 </Typography>
 
                 <Typography variant="body2" color="text.secondary">
-                  Используй параметры ниже, чтобы быстрее найти нужного пользователя.
+                  Используйте параметры ниже, чтобы быстрее найти нужного пользователя.
                 </Typography>
               </Box>
 
@@ -639,7 +639,7 @@ export function AdminUsersPage() {
 
                 <Typography variant="body2" color="text.secondary">
                   {mode === "create"
-                    ? "Заполни данные нового пользователя, выбери роль и предприятие."
+                    ? "Заполните данные нового пользователя, выбери роль и предприятие."
                     : "Измени данные пользователя и сохрани изменения."}
                 </Typography>
               </Box>

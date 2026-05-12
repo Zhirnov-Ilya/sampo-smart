@@ -31,6 +31,8 @@ import {
   getPriorityLabel,
   getStatusLabel,
 } from "../utils/format";
+import { isAdminRole } from "../utils/roles";
+import { useMe } from "../features/auth/useMe";
 import { useAdminEquipment } from "../features/admin-equipment/useAdminEquipment";
 
 
@@ -65,6 +67,10 @@ type PriorityFilter = "" | "high" | "medium" | "low";
 
 export function HypothesesPage() {
   const navigate = useNavigate();
+
+  const {data: user} = useMe();
+  const canDeleteHypothesis = isAdminRole(user?.role);
+
 
   const [selectedDowntimeId, setSelectedDowntimeId] = useState("");
 
@@ -258,7 +264,7 @@ export function HypothesesPage() {
                 </Typography>
 
                 <Typography variant="body2" color="text.secondary">
-                  Используй параметры ниже, чтобы быстрее найти нужную гипотезу.
+                  Используйте параметры ниже, чтобы быстрее найти нужную гипотезу.
                 </Typography>
               </Box>
 
@@ -484,6 +490,7 @@ export function HypothesesPage() {
                         Открыть
                       </Button>
 
+                    {canDeleteHypothesis && (
                       <Button
                         variant="outlined"
                         color="error"
@@ -493,6 +500,7 @@ export function HypothesesPage() {
                       >
                         Удалить
                       </Button>
+                    )}      
                     </Box>
                   </Paper>
                 ))}
@@ -517,7 +525,7 @@ export function HypothesesPage() {
               </Typography>
 
               <Typography variant="body2" color="text.secondary">
-                Выбери простой оборудования, чтобы сформировать гипотезу через AI.
+                Выберите простой оборудования, чтобы сформировать гипотезу через AI.
               </Typography>
             </Box>
 
